@@ -461,6 +461,13 @@ def merge_settings(user):
                     if t == "sections":
                         vals = [v for v in CANON_SECTIONS if v in {x.lower() for x in vals}]
                     base["params"][pk] = vals[:2000]
+    # findings the reviewer accepted as fine (engine.finding_key); only present when non-empty, so review IDs
+    # of documents without accepted findings are unchanged
+    acc = user.get("accepted")
+    if isinstance(acc, (list, tuple)):
+        vals = sorted({x[:200] for x in acc if isinstance(x, str) and x})[:5000]
+        if vals:
+            s["accepted"] = vals
     return s
 
 

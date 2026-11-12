@@ -1497,10 +1497,16 @@ class Pending(Exception):
         self.done, self.total = done, total
 
 
+def finding_key(rid, f):
+    """Stable ID of a finding, used to remember the ones a reviewer accepted as fine."""
+    return "%s:%s:%s:%s" % (rid, f.get("b", "-"), f.get("as", "-"), hashlib.sha1(f["msg"].encode("utf8")).hexdigest()[:6])
+
+
 def review(doc, settings, deadline=None):
     import time as _time
     s = merge_settings(settings or {})
     k = s["strictness"]
+    acc = set(s.get("accepted") or ())
     rules_out = []
     rules_full = []
     done = 0
@@ -1532,10 +1538,22 @@ def review(doc, settings, deadline=None):
         for f in fs:
             if f["sev"] is None:
                 f["sev"] = rc["sev"]
-        sevc = Counter(f["sev"] for f in fs)
-        rules_full.append((base, fs))
+            f["k"] = finding_key(rid, f)
+        live = fs
+        extra = {}
+        if acc:
+            ok = [f for f in fs if f["k"] in acc]
+            if ok:
+                for f in ok:
+                    f["ok"] = True
+                live = [f for f in fs if not f.get("ok")]
+                # each accepted finding gives back an equal share of the points this rule lost
+                sc = 100.0 - (100.0 - sc) * len(live) / len(fs)
+                extra = {"accepted": len(ok)}
+        sevc = Counter(f["sev"] for f in live)
+        rules_full.append((base, live))
         rules_out.append(dict(base, status="scored", value=round(v, 3), score=round(sc, 1), eff=eff, detail=out["detail"],
-                              n=len(fs), sevc=dict(sevc), findings=fs[:FINDINGS_CAP]))
+                              n=len(live), sevc=dict(sevc), findings=fs[:FINDINGS_CAP], **extra))
     cats = []
     for cid, cname, q in CATEGORIES:
         rs = [r for r in rules_out if r["cat"] == cid and r["status"] == "scored"]

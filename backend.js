@@ -181,12 +181,20 @@
       return json(rep);
     }
     if ((m = path.match(/^\/api\/report\/([^/]+)$/))) {
-      let fp = m[1]; const md = fp.endsWith(".md"); fp = fp.replace(/\.(md|json)$/, "");
+      let fp = m[1]; const kind = (fp.match(/\.(md|json|model)$/) || [])[1]; fp = fp.replace(/\.(md|json|model)$/, "");
       if (!validId(fp)) return fail("Bad review id.");
       const rep = await get("reports", fp);
       if (!rep) return fail("Review not found.", 404);
-      if (md) return text(await call("markdown", { rep }));
+      if (kind === "md") return text(await call("markdown", await reportArgs(rep)));
+      if (kind === "model") return json(await call("reportModel", await reportArgs(rep)));
       return json(rep);
+    }
+    if ((m = path.match(/^\/api\/settings\/(.+)$/))) {   // review ID -> the settings that produced it
+      const id = m[1].trim().toLowerCase();
+      if (!validId(id)) return fail("A review ID is 16 characters (0–9, a–f).");
+      const hit = (await kv("settingsIndex", {}))[id];
+      if (!hit) return fail("No review with that ID on this device. Load the backup that contains it, or check the ID.", 404);
+      return json(hit);
     }
     if ((m = path.match(/^\/api\/revised\/([^/]+)$/))) {
       const fp = m[1]; if (!validId(fp)) return fail("Bad review id.");
@@ -196,10 +204,25 @@
       if (method === "POST") reject = reject.concat((JSON.parse(body || "{}").reject || []).map(String));
       return text(await withDoc("revised", rep.doc.doc_id, { settings: rep.settings, reject }));
     }
-    if (path === "/api/history" && method === "GET") return json(await kv("history", []));
+    if (path === "/api/history" && method === "GET") return json(await collapseHistory());
+    if ((m = path.match(/^\/api\/manual\/(.+)$/))) {
+      if (!validId(m[1])) return fail("Bad document id.");
+      const all = await kv("manual", {});
+      if (method === "GET") return json(all[m[1]] || { rejected: [], decision: null });
+      const b = JSON.parse(body || "{}");
+      const rec = { rejected: Array.isArray(b.rejected) ? b.rejected.map(String).slice(0, 20000) : [],
+        decision: b.decision && VERDICTS.includes(b.decision.v) ? { v: b.decision.v, at: Number(b.decision.at) || Date.now(), note: String(b.decision.note || "").slice(0, 500) } : null, at: Date.now() };
+      all[m[1]] = rec; await put("kv", "manual", all);
+      const hist = await kv("history", []);
+      hist.forEach((h) => { if (h.doc_id === m[1]) h.decision = rec.decision; });
+      await put("kv", "history", hist);
+      return json(rec);
+    }
     if ((m = path.match(/^\/api\/history\/(.+)$/)) && method === "DELETE") {
       if (!validId(m[1])) return fail("Bad review id.");
+      const gone = (await kv("history", [])).find((h) => h.fp === m[1]);
       await put("kv", "history", (await kv("history", [])).filter((h) => h.fp !== m[1]));
+      if (gone) { const man = await kv("manual", {}); delete man[gone.doc_id]; await put("kv", "manual", man); }
       await del("reports", m[1]); await pruneDocs();
       return json({ ok: true });
     }
@@ -218,12 +241,33 @@
     return fail("Not found.", 404);
   }
 
+  const VERDICTS = ["accept", "minor", "major", "reject"];
+  async function reportArgs(rep) {   // the report reflects the reviewer's own calls on this document
+    const man = (await kv("manual", {}))[rep.doc.doc_id] || {};
+    return { rep, rejected: man.rejected || [], decision: man.decision || null };
+  }
+  // a document has one history entry: re-running it with new settings replaces its previous review
+  async function collapseHistory() {
+    const hist = await kv("history", []), seen = new Set(), keep = [], drop = [];
+    hist.slice().sort((a, b) => b.at - a.at).forEach((h) => (seen.has(h.doc_id) ? drop : keep).push(h) && seen.add(h.doc_id));
+    if (drop.length) { for (const h of drop) if (!keep.some((k) => k.fp === h.fp)) await del("reports", h.fp); await put("kv", "history", keep); }
+    return keep;
+  }
   async function saveReport(rep, docId, rec, words) {
     const fp = rep.fingerprint;
     await put("reports", fp, rep);
-    let hist = (await kv("history", [])).filter((h) => h.fp !== fp);
+    const idx = await kv("settingsIndex", {});   // every review ID stays resolvable to its settings, even after re-runs
+    if (!idx[fp]) {
+      idx[fp] = { settings: rep.settings, sha: rep.doc.sha, name: rec.name, at: Date.now() };
+      const ks = Object.keys(idx); if (ks.length > 5000) ks.sort((a, b) => idx[a].at - idx[b].at).slice(0, ks.length - 5000).forEach((k) => delete idx[k]);
+      await put("kv", "settingsIndex", idx);
+    }
+    const prev = await kv("history", []);
+    for (const h of prev) if (h.doc_id === docId && h.fp !== fp) await del("reports", h.fp);
+    const decision = ((await kv("manual", {}))[docId] || {}).decision || null;
+    let hist = prev.filter((h) => h.doc_id !== docId);
     hist.unshift({ fp, doc_id: docId, name: rec.name, profile: rep.settings.profile, strictness: rep.settings.strictness,
-      score: rep.overall, verdict: rep.verdict, at: Math.floor(Date.now() / 1000), words: words ?? rep.doc.words });
+      score: rep.overall, verdict: rep.verdict, at: Math.floor(Date.now() / 1000), words: words ?? rep.doc.words, decision });
     await setHistory(hist);
   }
   async function setHistory(hist) {   // keep history readable: newest 100, and drop reports and documents nothing points at
@@ -254,7 +298,7 @@
     const fp = url.pathname.split("/").pop().replace(/\.(md|json)$/, "");
     const rep = await get("reports", fp); if (!rep) return;
     const safe = safeName(rep.doc.name, "review");
-    if (md) download(await call("markdown", { rep }), `${safe}-review-${fp.slice(0, 8)}.md`, "text/markdown");
+    if (md) download(await call("markdown", await reportArgs(rep)), `${safe}-review-${fp.slice(0, 8)}.md`, "text/markdown");
     else download(JSON.stringify(rep, null, 1), `${safe}-review-${fp.slice(0, 8)}.json`, "application/json");
   });
   function download(data, name, type) {
@@ -269,17 +313,17 @@
     t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), undo ? 8000 : 2600);
   };
   async function snapshot(withDocs) {
-    const history = await kv("history", []), presets = await kv("presets", {});
+    const history = await collapseHistory(), presets = await kv("presets", {}), manual = await kv("manual", {}), settingsIndex = await kv("settingsIndex", {});
     const reports = Object.fromEntries(await all("reports"));
     const docs = {};
     if (withDocs) for (const [id, d] of await all("docs")) docs[id] = d;
-    return { app: "blue-pencil", kind: "backup", format: 1, exportedAt: Date.now(), history, presets, reports, docs };
+    return { app: "blue-pencil", kind: "backup", format: 2, exportedAt: Date.now(), history, presets, reports, docs, manual, settingsIndex };
   }
   async function restore(snap) {
     for (const s of STORES) await clear(s);
     for (const [k, v] of Object.entries(snap.docs || {})) await put("docs", k, v);
     for (const [k, v] of Object.entries(snap.reports || {})) await put("reports", k, v);
-    await put("kv", "presets", snap.presets || {}); await put("kv", "history", snap.history || []);
+    await put("kv", "presets", snap.presets || {}); await put("kv", "history", snap.history || []); await put("kv", "manual", snap.manual || {}); await put("kv", "settingsIndex", snap.settingsIndex || {});
     const lastExport = await kv("lastExport", 0); if (lastExport) await put("kv", "lastExport", lastExport);
   }
   function readBackup(textData) {
@@ -288,15 +332,21 @@
     const ok = (o) => o && typeof o === "object" && !Array.isArray(o);
     return { history: Array.isArray(j.history) ? j.history.filter((h) => h && validId(h.fp)) : [], presets: ok(j.presets) ? j.presets : {},
       reports: ok(j.reports) ? Object.fromEntries(Object.entries(j.reports).filter(([k, v]) => validId(k) && ok(v))) : {},
-      docs: ok(j.docs) ? Object.fromEntries(Object.entries(j.docs).filter(([k, v]) => validId(k) && ok(v) && Array.isArray(v.blocks))) : {}, exportedAt: j.exportedAt || 0 };
+      docs: ok(j.docs) ? Object.fromEntries(Object.entries(j.docs).filter(([k, v]) => validId(k) && ok(v) && Array.isArray(v.blocks))) : {}, exportedAt: j.exportedAt || 0,
+      manual: ok(j.manual) ? Object.fromEntries(Object.entries(j.manual).filter(([k, v]) => validId(k) && ok(v))) : {},
+      settingsIndex: ok(j.settingsIndex) ? Object.fromEntries(Object.entries(j.settingsIndex).filter(([k, v]) => validId(k) && ok(v) && ok(v.settings))) : {} };
   }
   const sameSettings = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   function mergeSnap(file, local) {
     // review IDs are fingerprints of (file, settings, engine), so the same review on two devices has the same ID
-    const out = { history: [], presets: { ...local.presets }, reports: { ...file.reports, ...local.reports }, docs: { ...file.docs, ...local.docs } };
-    const byFp = new Map();
-    for (const h of [...file.history, ...local.history]) { const o = byFp.get(h.fp); if (!o || h.at > o.at) byFp.set(h.fp, h); }
-    out.history = [...byFp.values()].filter((h) => out.reports[h.fp]).sort((a, b) => b.at - a.at);
+    const out = { history: [], presets: { ...local.presets }, reports: { ...file.reports, ...local.reports }, docs: { ...file.docs, ...local.docs }, manual: { ...file.manual }, settingsIndex: { ...file.settingsIndex, ...local.settingsIndex } };
+    for (const [k, v] of Object.entries(local.manual || {})) if (!out.manual[k] || (v.at || 0) >= (out.manual[k].at || 0)) out.manual[k] = v;
+    const byDoc = new Map();   // one review per document: the newest from either copy
+    for (const h of [...file.history, ...local.history]) { if (!out.reports[h.fp]) continue; const o = byDoc.get(h.doc_id); if (!o || h.at > o.at) byDoc.set(h.doc_id, h); }
+    out.history = [...byDoc.values()].sort((a, b) => b.at - a.at)
+      .map((h) => ({ ...h, decision: (out.manual[h.doc_id] || {}).decision || null }));
+    const live = new Set(out.history.map((h) => h.fp));
+    out.reports = Object.fromEntries(Object.entries(out.reports).filter(([fp]) => live.has(fp)));
     const renamed = [];
     for (const [name, s] of Object.entries(file.presets)) {
       if (!(name in out.presets)) { out.presets[name] = s; continue; }
@@ -356,7 +406,8 @@
   async function compare(file, name) {
     ensureDialog();
     const local = await snapshot(true), merged = mergeSnap(file, local), localEmpty = !local.history.length && !Object.keys(local.presets).length;
-    const nothingNew = stats(merged).reviews === stats(local).reviews && Object.keys(merged.docs).length === Object.keys(local.docs).length && !merged.renamed.length && Object.keys(merged.presets).length === Object.keys(local.presets).length;
+    const sig = (x) => JSON.stringify([x.history.map((h) => h.fp).sort(), Object.keys(x.docs).sort(), Object.keys(x.presets).sort(), Object.entries(x.manual || {}).sort().map(([k, v]) => [k, v.at])]);
+    const nothingNew = sig(merged) === sig(local) && !merged.renamed.length;
     const apply = async (snap, label) => {
       const before = local; await restore(snap); await put("kv", "lastChange", Date.now());
       dlg.close(); await refreshApp();
@@ -367,7 +418,7 @@
       table([["Backup file", file], ["This browser", local], localEmpty ? null : ["After merge", merged]].filter(Boolean)),
       nothingNew ? h("p", { class: "ok" }, "This browser already has everything in that backup.") :
         h("p", { class: "muted small" }, localEmpty ? "This browser has nothing saved yet, so loading copies the backup in." :
-          "Merge keeps every review and document from both. A preset with the same name but different settings is kept under a new name. Replace throws away what this browser has. Both can be undone right after."),
+          "Merge keeps every document from both, with the newest review and the newest of your decisions and accepted changes for each. A preset with the same name but different settings is kept under a new name. Replace throws away what this browser has. Both can be undone right after."),
       Object.keys(file.docs).length ? null : h("p", { class: "muted small" }, "This backup has no documents, so its reviews can be read and downloaded but not re-run until you upload the files again."),
       h("div", { class: "dlg-actions" },
         h("button", { type: "button", class: "btn ghost", onclick: openDialog }, "Back"),

@@ -15,6 +15,7 @@
     cat: null, doc: null, settings: null, report: null, history: [], presets: {},
     seq: 0, timer: null, open: new Set(), tab: "summary", f: freshFilters(), showAll: new Set(),
     rejected: new Set(), revRule: "", heatMetric: "q", sel: null,
+    accepted: new Set(), manual: { rejected: [], decision: null },   // the reviewer's own calls, kept per document
   };
 
   // ------------------------------------------------------------------ api
@@ -73,6 +74,13 @@
     S.doc = doc;
     S.settings = settings ? clone(settings) : clone(S.cat.profiles[doc.suggested_profile || "paper"].settings);
     if (!settings) S.settings.asof_year = new Date().getFullYear();
+    S.accepted = new Set(S.settings.accepted || []); delete S.settings.accepted;
+    S.manual = { rejected: [], decision: null };
+    api("/api/manual/" + doc.doc_id).then((m) => {
+      if (!m || S.doc !== doc) return;
+      S.manual = m; S.rejected = new Set(m.rejected || []);
+      if (S.report) renderReport();
+    }).catch(() => {});
     S.report = null; S.showAll.clear(); S.open.clear(); S.rejected.clear(); S.sel = null; S.f = freshFilters(); S.tab = S.pendingTab || "summary"; S.pendingTab = null;
     show("review");
     renderSettings();
@@ -100,6 +108,9 @@
           <div class="docmeta">${esc(d.format || "")}${d.pages ? ` · ${d.pages} pages` : ""} · ${fmt(d.words)} words · ${fmt(d.headings)} headings · ${fmt(d.references)} references</div>
           ${d.present.length ? `<div class="docmeta">Found: ${d.present.map(esc).join(", ")}</div>` : ""}</div>
         ${(d.warnings || []).map((w) => `<div class="warn">${esc(w)}</div>`).join("")}</div>
+      <div class="grp"><h4>Settings from a review ID</h4>
+        <div class="row"><input type="text" id="rid-in" class="grow mono" placeholder="e.g. 8e3d0fd207c1ca79" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Review ID"><button type="button" class="btn small" id="rid-apply">Apply</button></div>
+        <p class="blurb">Reuses the exact settings of an earlier review, on this paper or a new one. Every report shows its review ID.</p></div>
       <div class="grp"><h4>Review as</h4>
         <div class="seg" role="group" aria-label="Document type">
           ${["paper", "chapter", "book", "fiction", "general"].filter((id) => cat.profiles[id]).map((id) => `<button type="button" data-profile="${id}" aria-pressed="${id === s.profile}">${esc(cat.profiles[id].name)}</button>`).join("")}
@@ -239,6 +250,7 @@
         $("#st-k").value = t.dataset.k; $("#st-kv").textContent = "×" + Number(t.dataset.k).toFixed(2);
         $('label[for="st-k"]').textContent = strictLabel(Number(t.dataset.k)); runNow();
       }
+      if (t.id === "rid-apply") { applyReviewId($("#rid-in").value); return; }
       if (t.id === "reset") {
         S.settings = clone(S.cat.profiles[S.settings.profile].settings); S.settings.asof_year = new Date().getFullYear();
         renderSettings(); runNow(); toast("Settings reset to profile defaults");
@@ -274,7 +286,7 @@
     try {
       let rep;
       for (;;) {
-        rep = await post("/api/review", { doc_id: S.doc.doc_id, settings: S.settings });
+        rep = await post("/api/review", { doc_id: S.doc.doc_id, settings: { ...S.settings, accepted: [...S.accepted].sort() } });
         if (my !== S.seq) return;
         if (!rep.pending) break;
         setState(`Measuring ${rep.done} of ${rep.total} rules…`, true);
@@ -298,7 +310,8 @@
     const nf = SEVS.reduce((a, k) => a + totals[k], 0);
     $("#report").innerHTML = `
       <section class="card verdict" aria-label="Verdict">
-        <div><div class="eyebrow">Recommendation</div><div class="stamp v-${r.verdict}">${esc(r.verdict_label)}</div></div>
+        <div><div class="eyebrow">Recommendation</div><div class="stamp v-${r.verdict}">${esc(r.verdict_label)}</div>
+          ${decisionHTML(r)}</div>
         <div><div class="eyebrow">Overall score</div>
           <div class="scorebig">${fmt(r.overall)}<small> / 100</small></div>
           <div class="vscale" aria-hidden="true">
@@ -311,7 +324,7 @@
           <span>${esc(S.cat.profiles[s.profile].name)} · ${strictLabel(s.strictness)} ×${s.strictness.toFixed(2)} · ${s.aggregation === "mean" ? "average" : "RMS"}</span>
           <span class="sevs">${SEVS.map((k) => `<span class="sev ${k}">${totals[k]} ${k}</span>`).join("")}</span>
           <span title="Same file + same settings + engine ${esc(r.engine)} always gives this ID">Review ID <span class="mono">${esc(r.fingerprint)}</span></span>
-          <span class="actions"><a class="btn quiet small" href="/api/report/${r.fingerprint}.md">Report (.md)</a><a class="btn quiet small" href="/api/report/${r.fingerprint}?download=1">JSON</a></span>
+          <span class="actions"><button type="button" class="btn small" data-pdf="1">PDF report</button><a class="btn quiet small" href="/api/report/${r.fingerprint}.md">Report (.md)</a><a class="btn quiet small" href="/api/report/${r.fingerprint}?download=1">JSON</a></span>
         </div>
       </section>
       <nav class="tabs" role="tablist" aria-label="Report sections">
@@ -320,6 +333,57 @@
       <div id="tabpanel" role="tabpanel"></div>
       <p class="foot">Engine ${esc(r.engine)} · ${S.cat.rules.length} rules · reviewed in ${r.elapsed_s}s in your browser · same file + same settings → same review ID.</p>`;
     renderTab();
+  }
+  function decisionHTML(r) {
+    const d = S.manual.decision, nacc = S.accepted.size;
+    return `<div class="decide">
+        <div class="eyebrow">Your decision</div>
+        ${d ? `<div class="stamp mine v-${d.v}" title="Set by you ${esc(new Date(d.at).toLocaleString())}">${esc(VLABEL[d.v])}</div>` : ""}
+        <div class="decide-btns" role="group" aria-label="Your decision">${Object.keys(VLABEL).map((v) => `<button type="button" class="btn quiet small" data-decide="${v}" aria-pressed="${!!d && d.v === v}">${VLABEL[v]}</button>`).join("")}
+          ${d ? `<button type="button" class="link small" data-decide="">Clear</button>` : ""}</div>
+        <p class="muted decide-note">${d ? (d.v === r.verdict ? "Agrees with the recommendation." : "Your call overrides the recommendation in history and the downloaded report.") : "After your own read-through, record your verdict here."}
+          ${nacc ? `<br>${nacc} finding${nacc === 1 ? "" : "s"} accepted as fine. <button type="button" class="link small" data-acc-clear="1">Restore all</button>` : ""}</p>
+      </div>`;
+  }
+  let manualT = null;
+  function saveManual(patch) {
+    Object.assign(S.manual, patch, { rejected: [...S.rejected].sort() });
+    clearTimeout(manualT);
+    const docId = S.doc.doc_id, body = JSON.stringify(S.manual);
+    manualT = setTimeout(() => (manualT = null, api("/api/manual/" + docId, { method: "PUT", headers: { "Content-Type": "application/json" }, body }).then(() => { api("/api/history").then((h) => (S.history = h)).catch(() => {}); }).catch((e) => toast(e.message))), 400);
+  }
+  async function downloadPdf(btn) {
+    const label = btn.textContent; btn.disabled = true; btn.textContent = "Building PDF…";
+    try {
+      await saveManualNow();
+      const safe = (S.doc.name.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60)) || "review";
+      await window.BP_pdf(S.report.fingerprint, `${safe}-review-${S.report.fingerprint.slice(0, 8)}.pdf`);
+      toast("PDF report downloaded");
+    } catch (e) { toast(e.message); }
+    btn.disabled = false; btn.textContent = label;
+  }
+  async function saveManualNow() {   // make sure the report includes the latest accept/reject clicks
+    if (!manualT) return;
+    clearTimeout(manualT); manualT = null;
+    await api("/api/manual/" + S.doc.doc_id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(S.manual) }).catch(() => {});
+  }
+  async function applyReviewId(raw) {
+    const id = (raw || "").trim().toLowerCase();
+    if (!id) { toast("Paste a review ID first"); return; }
+    try {
+      const hit = await api("/api/settings/" + encodeURIComponent(id));
+      const st = clone(hit.settings), acc = st.accepted || []; delete st.accepted;
+      S.settings = st;
+      const same = hit.sha && hit.sha.slice(0, 16) === S.doc.doc_id;
+      S.accepted = new Set(same ? acc : []);
+      renderSettings(); runNow();
+      toast(`Settings from review ${id} applied` + (same && acc.length ? `, with your ${acc.length} accepted finding${acc.length === 1 ? "" : "s"}` : ""));
+    } catch (e) { toast(e.message); }
+  }
+  function toggleAccept(k) {
+    S.accepted.has(k) ? S.accepted.delete(k) : S.accepted.add(k);
+    toast(S.accepted.has(k) ? "Accepted as fine: it no longer counts against the score" : "Finding restored");
+    runNow();
   }
   function renderTab() {
     const fn = { summary: tabSummary, findings: tabFindings, rewrites: tabRewrites, map: tabMap, metrics: tabMetrics }[S.tab];
@@ -447,7 +511,8 @@
         <p class="why"><b>Why it matters.</b> ${esc(meta.why)} <b>Fix.</b> ${esc(meta.fix)}</p>${exHTML(meta)}
         ${items.length ? `<ul class="flist">${items.slice(0, lim).map(({ f }) => findingHTML(f, null, ci.get(`${x.id}:${f.b}:${f.as}`))).join("")}</ul>` : `<p class="empty-note">${x.n ? "No findings match the filters." : "No individual findings."}</p>`}
         ${items.length > lim ? `<button type="button" class="btn quiet small more" data-more="${x.id}">Show all ${items.length}</button>` : ""}
-        ${x.n > (x.findings || []).length ? `<p class="empty-note">Showing the first ${x.findings.length} of ${x.n} findings.</p>` : ""}
+        ${x.accepted ? `<p class="empty-note">${x.accepted} accepted as fine by you, giving back ${x.accepted} of ${x.n + x.accepted} shares of this rule's lost points.</p>` : ""}
+        ${x.n + (x.accepted || 0) > (x.findings || []).length ? `<p class="empty-note">Showing the first ${x.findings.length} of ${x.n + (x.accepted || 0)} findings.</p>` : ""}
       </div></details>`;
   }
   function findingHTML(f, r, ch) {
@@ -458,7 +523,8 @@
       ex = he > hs ? esc(f.x.slice(0, hs)) + "<mark>" + esc(f.x.slice(hs, he)) + "</mark>" + esc(f.x.slice(he)) : esc(f.x);
     }
     const diff = ch ? `<div class="mini-diff" aria-label="Suggested change"><div class="dl del"><span class="g">−</span><span>${esc(ch.old) || "<em>(space)</em>"}</span></div><div class="dl add"><span class="g">+</span><span>${ch.new ? esc(ch.new) : "<em>(deleted)</em>"}</span></div></div>` : "";
-    return `<li><div class="fhead"><span class="sev ${f.sev}">${f.sev}</span>${r ? `<span class="chip">${r.id}</span>` : ""}<span class="msg">${esc(f.msg)}</span>${where ? `<span class="where">${esc(where)}</span>` : ""}</div>
+    const acc = f.k ? `<button type="button" class="btn quiet small facc" data-acc="${esc(f.k)}" aria-pressed="${!!f.ok}" title="${f.ok ? "Count this finding again" : "You checked it and it's fine: stop counting it"}">${f.ok ? "✓ Accepted · undo" : "Looks fine"}</button>` : "";
+    return `<li class="${f.ok ? "f-ok" : ""}"><div class="fhead"><span class="sev ${f.sev}">${f.sev}</span>${r ? `<span class="chip">${r.id}</span>` : ""}<span class="msg">${esc(f.msg)}</span>${where ? `<span class="where">${esc(where)}</span>` : ""}${acc}</div>
       ${ex ? `<p class="excerpt">${ex}</p>` : ""}${diff}${f.fix ? `<div class="ffix">→ ${esc(f.fix)}</div>` : ""}</li>`;
   }
 
@@ -482,7 +548,7 @@
           <button type="button" class="btn quiet small" data-rev-all="reject">Reject all</button>
           <button type="button" class="btn small" id="rev-dl">Download revised (.md)</button>
         </div></div>
-      <p class="blurb">Like a git diff: <span class="del-t">− original</span> above, <span class="add-t">+ revised</span> below with every ticked change applied. Untick a change to keep your wording; each change names its rule and reason.</p>
+      <p class="blurb">Like a git diff: <span class="del-t">− original</span> above, <span class="add-t">+ revised</span> below with every accepted change applied. Reject a change to keep your wording; each change names its rule and reason. Your choices are saved with this document.</p>
       ${blocks.map(([b, cs]) => diffBlock(b, cs, rv, names)).join("")}
       ${byB.size > blocks.length ? `<button type="button" class="btn quiet small more" data-more="rev">Show all ${byB.size} paragraphs</button>` : ""}
     </section>`;
@@ -506,7 +572,7 @@
       <div class="dl del"><span class="g">−</span><p>${del}</p></div>
       <div class="dl add"><span class="g">+</span><p>${live.length ? add : esc(text)}</p></div>
       <ul class="clist">${cs.map((c) => `<li class="${S.rejected.has(c.id) ? "rej" : ""}">
-          <label><input type="checkbox" data-chg="${esc(c.id)}" ${S.rejected.has(c.id) ? "" : "checked"}> <span class="chip">${c.rule}</span> <span class="sev ${c.sev}">${c.sev}</span></label>
+          <span class="chg-ar" role="group" aria-label="Accept or reject this change"><button type="button" class="ar-acc" data-chg-set="accept" data-chg-id="${esc(c.id)}" aria-pressed="${!S.rejected.has(c.id)}">✓ Accept</button><button type="button" class="ar-rej" data-chg-set="reject" data-chg-id="${esc(c.id)}" aria-pressed="${S.rejected.has(c.id)}">✕ Reject</button></span> <span class="chip">${c.rule}</span> <span class="sev ${c.sev}">${c.sev}</span>
           <span class="cw"><del>${esc(c.old) || "␣"}</del> → <ins>${c.new ? esc(c.new) : "(delete)"}</ins></span>
           <span class="creason"><b>${esc(names[c.rule] || c.name)}.</b> ${esc(c.reason)} <span class="muted">Why: ${esc(c.why)}</span></span>
         </li>`).join("")}</ul></div>`;
@@ -687,7 +753,14 @@
       const cell = t.closest("[data-cell]"); if (cell) { S.sel = Number(cell.dataset.cell); S.tab = "map"; renderTab(); const d = $(".pdetail"); if (d) d.scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
       const pf = t.closest("[data-para-findings]"); if (pf) { S.f = freshFilters("position"); S.f.para = Number(pf.dataset.paraFindings); goTab("findings"); return; }
       const ra = t.closest("[data-rev-all]");
-      if (ra) { S.report.revisions.changes.filter((c) => !S.revRule || c.rule === S.revRule).forEach((c) => ra.dataset.revAll === "reject" ? S.rejected.add(c.id) : S.rejected.delete(c.id)); renderTab(); return; }
+      if (ra) { S.report.revisions.changes.filter((c) => !S.revRule || c.rule === S.revRule).forEach((c) => ra.dataset.revAll === "reject" ? S.rejected.add(c.id) : S.rejected.delete(c.id)); saveManual(); renderTab(); return; }
+      const cs = t.closest("[data-chg-set]");
+      if (cs) { cs.dataset.chgSet === "reject" ? S.rejected.add(cs.dataset.chgId) : S.rejected.delete(cs.dataset.chgId); saveManual(); const y = window.scrollY; renderTab(); window.scrollTo({ top: y }); return; }
+      const ac = t.closest("[data-acc]"); if (ac) { toggleAccept(ac.dataset.acc); return; }
+      if (t.closest("[data-acc-clear]")) { S.accepted.clear(); toast("All accepted findings restored"); runNow(); return; }
+      if (t.closest("[data-pdf]")) { downloadPdf(t.closest("[data-pdf]")); return; }
+      const dc = t.closest("[data-decide]");
+      if (dc) { const v = dc.dataset.decide; saveManual({ decision: v ? { v, at: Date.now() } : null }); renderReport(); toast(v ? `Your decision: ${VLABEL[v]}` : "Decision cleared"); return; }
       if (t.id === "rev-dl") downloadRevised();
     });
     box.addEventListener("change", (ev) => {
@@ -716,7 +789,7 @@
       ${rows.map((h) => `<tr><td>${new Date(h.at * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td>
         <td>${esc(h.name)}<div class="muted mono" style="font-size:11px">${fmt(h.words)} words · ${esc(h.fp)}</div></td>
         <td>${esc((S.cat.profiles[h.profile] || {}).name || h.profile)} · ×${Number(h.strictness).toFixed(2)}</td>
-        <td class="num">${fmt(h.score)}</td><td><span class="vchip v-${h.verdict}">${VLABEL[h.verdict]}</span></td>
+        <td class="num">${fmt(h.score)}</td><td><span class="vchip v-${h.verdict}">${VLABEL[h.verdict]}</span>${h.decision && h.decision.v ? `<div class="mine-chip">You: <span class="vchip v-${h.decision.v}">${VLABEL[h.decision.v]}</span></div>` : ""}</td>
         <td><button type="button" class="btn quiet small" data-open-fp="${h.fp}">Open</button> <button type="button" class="btn quiet small" data-del-fp="${h.fp}">Delete</button></td></tr>`).join("")}
     </tbody></table></div>`;
   }

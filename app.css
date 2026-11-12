@@ -395,3 +395,21 @@ table.matrix { min-width: 720px; }
 .engine-state { position: fixed; right: 12px; bottom: 10px; margin: 0; font-size: 12px; pointer-events: none; }
 .engine-state:empty { display: none; }
 @media (max-width: 600px) { .engine-state { left: 12px; right: auto; } }
+
+/* ---- reviewer's own calls: decision, accepted findings, accept/reject rewrites ---- */
+.decide { margin-top: 14px; display: grid; gap: 6px; }
+.decide .stamp.mine { outline: 2px dashed currentColor; outline-offset: 2px; }
+.decide-btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.decide-btns button[aria-pressed="true"] { background: var(--pencil); border-color: var(--pencil); color: var(--pencil-ink); }
+.decide-note { margin: 0; font-size: 12.5px; max-width: 34ch; }
+.link.small { font-size: 12.5px; padding: 2px 4px; text-decoration: underline; }
+.fhead .facc { margin-left: auto; flex-shrink: 0; }
+.facc[aria-pressed="true"] { color: var(--accept); border-color: var(--accept); }
+.flist li.f-ok { opacity: .6; }
+.flist li.f-ok .msg { text-decoration: line-through; text-decoration-color: var(--ink-3); }
+.chg-ar { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; vertical-align: middle; }
+.chg-ar button { border: 0; background: var(--surface); color: var(--ink-2); font: 600 12px var(--f-ui); padding: 3px 9px; cursor: pointer; }
+.chg-ar button + button { border-left: 1px solid var(--rule); }
+.chg-ar .ar-acc[aria-pressed="true"] { background: var(--accept); color: #fff; }
+.chg-ar .ar-rej[aria-pressed="true"] { background: var(--reject); color: #fff; }
+.mine-chip { margin-top: 4px; font-size: 11px; color: var(--ink-3); }

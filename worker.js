@@ -2,7 +2,7 @@
 /* global importScripts, loadPyodide */
 "use strict";
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
-const PY_FILES = ["engine.py", "extract.py", "rules.py", "rules_more.py", "measures_more.py", "analysis.py", "lexicon.py", "examples.py", "bridge.py"];
+const PY_FILES = ["engine.py", "extract.py", "rules.py", "rules_more.py", "measures_more.py", "analysis.py", "lexicon.py", "examples.py", "report.py", "bridge.py"];
 const WHEELS = {
   docx: ["python_docx-1.2.0-py3-none-any.whl"],
   xlsx: ["et_xmlfile-2.0.0-py3-none-any.whl", "openpyxl-3.1.5-py2.py3-none-any.whl"],
@@ -65,7 +65,8 @@ const CMDS = {
   },
   summary({ docId, rec, warnings }) { if (!has(docId, rec)) return NEED; return J(bridge.summary(docId, rec || null, !!warnings)); },
   review({ docId, rec, settings }) { if (!has(docId, rec)) return NEED; return J(bridge.review(docId, rec || null, JSON.stringify(settings || {}), 1.5)); },
-  markdown({ rep }) { return bridge.markdown(JSON.stringify(rep)); },
+  markdown({ rep, rejected, decision }) { return bridge.markdown(JSON.stringify(rep), JSON.stringify(rejected || []), JSON.stringify(decision || null)); },
+  reportModel({ rep, rejected, decision }) { return J(bridge.report_model(JSON.stringify(rep), JSON.stringify(rejected || []), JSON.stringify(decision || null))); },
   revised({ docId, rec, settings, reject }) { if (!has(docId, rec)) return NEED; return bridge.revised(docId, rec || null, JSON.stringify(settings), JSON.stringify(reject || [])); },
   mergeSettings({ settings }) { return J(bridge.merge_settings(JSON.stringify(settings || {}))); },
   cached({ docId }) { return bridge.cached(docId); },
