@@ -210,7 +210,8 @@
       const all = await kv("manual", {});
       if (method === "GET") return json(all[m[1]] || { rejected: [], decision: null });
       const b = JSON.parse(body || "{}");
-      const rec = { rejected: Array.isArray(b.rejected) ? b.rejected.map(String).slice(0, 20000) : [],
+      const ids = (x) => (Array.isArray(x) ? [...new Set(x.map(String))].filter((r) => /^[A-Z]{3}-\d{2}$/.test(r)).sort() : []);
+      const rec = { rejected: Array.isArray(b.rejected) ? b.rejected.map(String).slice(0, 20000) : [], dismissed: ids(b.dismissed), included: ids(b.included),
         decision: b.decision && VERDICTS.includes(b.decision.v) ? { v: b.decision.v, at: Number(b.decision.at) || Date.now(), note: String(b.decision.note || "").slice(0, 500) } : null, at: Date.now() };
       all[m[1]] = rec; await put("kv", "manual", all);
       const hist = await kv("history", []);
@@ -243,8 +244,7 @@
 
   const VERDICTS = ["accept", "minor", "major", "reject"];
   async function reportArgs(rep) {   // the report reflects the reviewer's own calls on this document
-    const man = (await kv("manual", {}))[rep.doc.doc_id] || {};
-    return { rep, rejected: man.rejected || [], decision: man.decision || null };
+    return { rep, manual: (await kv("manual", {}))[rep.doc.doc_id] || null };
   }
   // a document has one history entry: re-running it with new settings replaces its previous review
   async function collapseHistory() {

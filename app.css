@@ -413,3 +413,12 @@ table.matrix { min-width: 720px; }
 .chg-ar .ar-acc[aria-pressed="true"] { background: var(--accept); color: #fff; }
 .chg-ar .ar-rej[aria-pressed="true"] { background: var(--reject); color: #fff; }
 .mine-chip { margin-top: 4px; font-size: 11px; color: var(--ink-3); }
+
+/* ---- choosing what goes into the final report ---- */
+.keep-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.keep-count { font-size: 12.5px; }
+.keep-all { margin-left: auto; display: inline-flex; gap: 4px; }
+.todo .t-keep { grid-column: 2 / -1; justify-self: start; margin-top: 4px; }
+.todo li.t-out > :not(.t-keep) { opacity: .45; }
+.todo li.t-out .t-name button { text-decoration: line-through; }
+.keep-note { font-size: 13px; margin: 4px 0 10px; }

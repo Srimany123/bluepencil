@@ -88,7 +88,7 @@
       defaultStyle: { font: "Roboto", fontSize: 10, color: C.ink, lineHeight: 1.2 },
       styles: { h2: { fontSize: 13.5, bold: true, color: C.ink } },
       footer: (page, pages) => ({ margin: [40, 18, 40, 0], columns: [
-        { text: `Review ID ${m.review_id}  ·  reproduces these settings in Blue Pencil`, fontSize: 7.5, color: C.ink3 },
+        { text: `Review ID ${m.review_id}`, fontSize: 7.5, color: C.ink3 },
         { text: `${page} / ${pages}`, alignment: "right", fontSize: 7.5, color: C.ink3 }] }),
     };
   }

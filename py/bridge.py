@@ -110,12 +110,17 @@ def review(doc_id, rec_json, settings_json, budget_s=1.5):
     return json.dumps(rep, ensure_ascii=False)
 
 
-def report_model(rep_json, rejected_json="[]", decision_json="null"):
-    return json.dumps(report.model(json.loads(rep_json), json.loads(rejected_json), json.loads(decision_json)), ensure_ascii=False)
+def _model(rep_json, manual_json):
+    man = json.loads(manual_json or "null") or {}
+    return report.model(json.loads(rep_json), man.get("rejected"), man.get("decision"), man.get("dismissed"), man.get("included"))
 
 
-def markdown(rep_json, rejected_json="[]", decision_json="null"):
-    return report.to_markdown(report.model(json.loads(rep_json), json.loads(rejected_json), json.loads(decision_json)))
+def report_model(rep_json, manual_json="null"):
+    return json.dumps(_model(rep_json, manual_json), ensure_ascii=False)
+
+
+def markdown(rep_json, manual_json="null"):
+    return report.to_markdown(_model(rep_json, manual_json))
 
 
 def revised(doc_id, rec_json, settings_json, reject_json):

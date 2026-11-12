@@ -15,7 +15,7 @@
     cat: null, doc: null, settings: null, report: null, history: [], presets: {},
     seq: 0, timer: null, open: new Set(), tab: "summary", f: freshFilters(), showAll: new Set(),
     rejected: new Set(), revRule: "", heatMetric: "q", sel: null,
-    accepted: new Set(), manual: { rejected: [], decision: null },   // the reviewer's own calls, kept per document
+    accepted: new Set(), manual: { rejected: [], decision: null, dismissed: [], included: [] },   // the reviewer's own calls, kept per document
   };
 
   // ------------------------------------------------------------------ api
@@ -75,10 +75,10 @@
     S.settings = settings ? clone(settings) : clone(S.cat.profiles[doc.suggested_profile || "paper"].settings);
     if (!settings) S.settings.asof_year = new Date().getFullYear();
     S.accepted = new Set(S.settings.accepted || []); delete S.settings.accepted;
-    S.manual = { rejected: [], decision: null };
+    S.manual = { rejected: [], decision: null, dismissed: [], included: [] };
     api("/api/manual/" + doc.doc_id).then((m) => {
       if (!m || S.doc !== doc) return;
-      S.manual = m; S.rejected = new Set(m.rejected || []);
+      S.manual = { dismissed: [], included: [], ...m }; S.rejected = new Set(m.rejected || []);
       if (S.report) renderReport();
     }).catch(() => {});
     S.report = null; S.showAll.clear(); S.open.clear(); S.rejected.clear(); S.sel = null; S.f = freshFilters(); S.tab = S.pendingTab || "summary"; S.pendingTab = null;
@@ -406,20 +406,43 @@
             <span class="bar"><span class="fill" style="width:${c.score ?? 0}%"></span><span class="tick" style="left:${vb.minor}%"></span><span class="tick" style="left:${vb.accept}%"></span></span>
             <span class="num">${c.score == null ? "n/a" : fmt(c.score, 0)}</span></div>`).join("")}</div>
         <div class="legend">Ticks mark Minor revision (${fmt(vb.minor)}) and Accept (${fmt(vb.accept)}). Click a category to see its findings.</div></section>
+      <p class="keep-note muted">Finalize the report: keep each item <b>In report</b> or mark it <b>Not needed</b>. The PDF and .md include only what you keep. This doesn't change the score; use <b>Looks fine</b> on a finding for that.</p>
       <div class="split">
-        <section class="card"><div class="eyebrow">Required revisions</div>${todoList(r.required, "Nothing blocking. No critical or major rule is failing.")}</section>
-        <section class="card"><div class="eyebrow">Suggested improvements</div>${todoList(r.suggested, "No minor issues worth mentioning.")}</section>
+        <section class="card">${keepHead("Required revisions", "required", r.required)}${todoList(r.required, "Nothing blocking. No critical or major rule is failing.", "required")}</section>
+        <section class="card">${keepHead("Suggested improvements", "suggested", r.suggested)}${todoList(r.suggested, "No minor issues worth mentioning.", "suggested")}</section>
       </div>
       ${r.strengths.length ? `<section class="card"><div class="eyebrow">Strengths</div><ul class="strengths">${r.strengths.map((x) => `<li><b>${esc(x.name)}.</b> ${esc(x.detail)}</li>`).join("")}</ul></section>` : ""}`;
   }
-  function todoList(items, empty) {
+  // ---- what goes into the final report: the reviewer keeps or leaves out each item (score unchanged)
+  const REPORT_TOP = 8;
+  function inReport(kind, rank, id) {
+    const m = S.manual;
+    if ((m.included || []).includes(id)) return true;
+    if ((m.dismissed || []).includes(id)) return false;
+    return kind === "required" || rank < REPORT_TOP;
+  }
+  function setInReport(kind, rank, id, on) {
+    const dflt = kind === "required" || rank < REPORT_TOP;
+    const inc = new Set(S.manual.included || []), dis = new Set(S.manual.dismissed || []);
+    inc.delete(id); dis.delete(id);
+    if (on && !dflt) inc.add(id);
+    if (!on && dflt) dis.add(id);
+    S.manual.included = [...inc].sort(); S.manual.dismissed = [...dis].sort();
+  }
+  function keepHead(title, kind, items) {
+    const n = items.filter((x, i) => inReport(kind, i, x.id)).length;
+    return `<div class="keep-head"><div class="eyebrow">${title}</div>${items.length ? `<span class="muted keep-count">${n} of ${items.length} in report</span>
+      <span class="keep-all"><button type="button" class="link small" data-keep-all="in" data-keep-kind="${kind}">Include all</button><button type="button" class="link small" data-keep-all="out" data-keep-kind="${kind}">Leave all out</button></span>` : ""}</div>`;
+  }
+  function todoList(items, empty, kind) {
     if (!items.length) return `<p class="empty-note">${esc(empty)}</p>`;
     const meta = ruleMeta();
-    return `<ol class="todo">${items.map((x) => `<li>
+    return `<ol class="todo">${items.map((x, i) => { const on = inReport(kind, i, x.id); return `<li class="${on ? "" : "t-out"}">
         <span class="t-name"><button type="button" data-frule="${x.id}">${esc(x.name)}</button> ${x.crit ? `<span class="sev critical">${x.crit} critical</span>` : ""}</span>
         <span class="lost" title="Points of overall score this rule costs">−${fmt(x.lost, 1)} pts</span>
         <span class="t-detail">${esc(x.detail)}</span><span class="t-fix">${esc(x.fix)}</span>
-        ${meta[x.id] && meta[x.id].ex ? `<span class="t-ex">${exHTML(meta[x.id])}</span>` : ""}</li>`).join("")}</ol>`;
+        ${meta[x.id] && meta[x.id].ex ? `<span class="t-ex">${exHTML(meta[x.id])}</span>` : ""}
+        <span class="t-keep chg-ar" role="group" aria-label="Include in the report"><button type="button" class="ar-acc" data-keep-set="in" data-keep-kind="${kind}" data-keep-rank="${i}" data-keep-id="${x.id}" aria-pressed="${on}">✓ In report</button><button type="button" class="ar-rej" data-keep-set="out" data-keep-kind="${kind}" data-keep-rank="${i}" data-keep-id="${x.id}" aria-pressed="${!on}">Not needed</button></span></li>`; }).join("")}</ol>`;
   }
 
   // ------------------------------------------------------------------ findings
@@ -759,6 +782,10 @@
       const ac = t.closest("[data-acc]"); if (ac) { toggleAccept(ac.dataset.acc); return; }
       if (t.closest("[data-acc-clear]")) { S.accepted.clear(); toast("All accepted findings restored"); runNow(); return; }
       if (t.closest("[data-pdf]")) { downloadPdf(t.closest("[data-pdf]")); return; }
+      const ks = t.closest("[data-keep-set]");
+      if (ks) { setInReport(ks.dataset.keepKind, Number(ks.dataset.keepRank), ks.dataset.keepId, ks.dataset.keepSet === "in"); saveManual({}); const y = window.scrollY; renderTab(); window.scrollTo({ top: y }); return; }
+      const ka = t.closest("[data-keep-all]");
+      if (ka) { const kind = ka.dataset.keepKind; (kind === "required" ? S.report.required : S.report.suggested).forEach((x, i) => setInReport(kind, i, x.id, ka.dataset.keepAll === "in")); saveManual({}); const y = window.scrollY; renderTab(); window.scrollTo({ top: y }); return; }
       const dc = t.closest("[data-decide]");
       if (dc) { const v = dc.dataset.decide; saveManual({ decision: v ? { v, at: Date.now() } : null }); renderReport(); toast(v ? `Your decision: ${VLABEL[v]}` : "Decision cleared"); return; }
       if (t.id === "rev-dl") downloadRevised();

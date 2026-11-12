@@ -50,12 +50,21 @@ def _rule_item(rep, brief, nloc):
             "locations": locs, "more": max(0, total - len(locs)), "count": total}
 
 
-def model(rep, rejected=(), decision=None, now=None):
-    rejected = set(rejected or ())
+def in_report(kind, rank, rid, dismissed=(), included=()):
+    """Default: every required change, and the top MAX_IMPROVE improvements. The reviewer can switch any of them."""
+    if rid in included:
+        return True
+    if rid in dismissed:
+        return False
+    return kind == "required" or rank < MAX_IMPROVE
+
+
+def model(rep, rejected=(), decision=None, dismissed=(), included=(), now=None):
+    rejected, dismissed, included = set(rejected or ()), set(dismissed or ()), set(included or ())
     title = os.path.splitext(rep["doc"]["name"])[0] or rep["doc"]["name"]
     dec = decision if decision and decision.get("v") in VLABEL else None
-    required = [_rule_item(rep, b, LOC_REQUIRED) for b in rep["required"]]
-    improve = [_rule_item(rep, b, LOC_IMPROVE) for b in rep["suggested"][:MAX_IMPROVE]]
+    required = [_rule_item(rep, b, LOC_REQUIRED) for i, b in enumerate(rep["required"]) if in_report("required", i, b["id"], dismissed, included)]
+    improve = [_rule_item(rep, b, LOC_IMPROVE) for i, b in enumerate(rep["suggested"]) if in_report("suggested", i, b["id"], dismissed, included)]
     rv = rep.get("revisions") or {}
     edits = []
     for c in rv.get("changes", []):
@@ -108,7 +117,7 @@ def model(rep, rejected=(), decision=None, now=None):
                     "engine_label": rep["verdict_label"] if dec and dec["v"] != rep["verdict"] else None},
         "score": round(rep["overall"]),
         "headline": head, "summary": summary,
-        "required": required, "improve": improve, "more_improve": max(0, len(rep["suggested"]) - MAX_IMPROVE),
+        "required": required, "improve": improve, "more_improve": 0,
         "edits": edits[:MAX_EDITS], "more_edits": max(0, rv.get("total", 0) - len(rv.get("changes", []))) + max(0, len(edits) - MAX_EDITS),
         "scores": [{"area": c["name"], "score": round(c["score"])} for c in cats],
         "strengths": [x["name"] for x in rep["strengths"]][:8],
@@ -180,5 +189,4 @@ def to_markdown(m):
         L += ["## Scores by area", "", "| Area | Score |", "|---|---:|"] + ["| %s | %d |" % (s["area"], s["score"]) for s in m["scores"]] + [""]
     if m["strengths"]:
         L += ["## Checks passed cleanly", "", ", ".join(m["strengths"]) + ".", ""]
-    L += ["---", "", "*Review ID `%s` reproduces this review's settings: enter it in Blue Pencil under Settings → Settings from a review ID.*" % m["review_id"]]
-    return "\n".join(L)
+    return "\n".join(L).rstrip() + "\n"
