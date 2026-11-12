@@ -13,6 +13,7 @@ import engine
 import rules
 import analysis
 import report
+import insights
 
 
 class _NoProc(Exception):
@@ -105,6 +106,7 @@ def review(doc_id, rec_json, settings_json, budget_s=1.5):
     except engine.Pending as p:
         return json.dumps({"pending": True, "done": p.done, "total": p.total})
     rep["doc"]["doc_id"] = doc_id
+    rep["insights"] = insights.compute(d, rep)   # online-only metrics; not part of the review ID
     rep["elapsed_s"] = round(time.time() - t0, 2)
     rep["_words"] = d.words   # for the history list; removed before the report is stored
     return json.dumps(rep, ensure_ascii=False)

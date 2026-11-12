@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blue Pencil Privacy</title>
+<meta name="description" content="How Blue Pencil handles the documents you review.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 26l3-9L22 4l6 6L15 23z' fill='%232F62C9'/%3E%3Cpath d='M6 26l3-9 6 6z' fill='%23E9C46A'/%3E%3C/svg%3E">
+</head>
+<body class="page">
+<header class="top">
+  <a class="brand" href="./" data-home>
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26l3-9L22 4l6 6L15 23z" class="pencil-body"/><path d="M6 26l3-9 6 6z" class="pencil-tip"/></svg>
+    <span>Blue Pencil</span>
+  </a>
+  <span class="host">privacy</span>
+  <nav class="topnav">
+    <a class="link" href="./" data-home>Review a file</a>
+    <a class="link" href="docs.html">Docs</a>
+    <a class="link" href="owner.html">Owner</a>
+  </nav>
+</header>
+<main class="docs-body legal">
+  <h1>Privacy policy</h1>
+  <p class="muted">Effective 12 November 2026 · Blue Pencil is owned and operated by Sriman Yalavarthi.</p>
+
+  <h2>The short version</h2>
+  <ul data-mode="browser">
+    <li>Your documents are read and reviewed <b>on your own device</b>. They are never uploaded to us or anyone else.</li>
+    <li>Reviews, documents and presets are kept in your browser's storage until you delete them.</li>
+    <li>No accounts, no advertising, no selling of data, no AI processing of your text.</li>
+  </ul>
+  <ul data-mode="server" hidden>
+    <li>Files you upload are sent to a private server operated by Sriman Yalavarthi, where they are reviewed and kept so you can reopen them.</li>
+    <li>They are never shared, sold, or used to train any model. Reviews use fixed rules, not AI.</li>
+    <li>You can delete any review and its document from History at any time.</li>
+  </ul>
+
+  <h2>What is processed</h2>
+  <p data-mode="browser">When you choose a file, its text is extracted and reviewed inside your browser by code downloaded from this site. The following is stored in your browser (IndexedDB) on this device only: the extracted text of the documents you reviewed, the review reports, your history, presets, and your own review choices (accepted findings, decisions, report selections). Backups you download are files on your device; we never receive them.</p>
+  <p data-mode="server" hidden>When you upload a file, it is sent over an encrypted connection to the server. The server extracts the text and stores it with the review report, your history, presets and your review choices (accepted findings, decisions, report selections). The original file is deleted right after its text is extracted. Stored data stays on the server until you delete it from History, which removes the review, its document and your choices for it.</p>
+
+  <h2>Services involved</h2>
+  <p>To deliver the site, your browser contacts these providers. They receive standard request information such as your IP address and browser type, never the content of your documents:</p>
+  <ul>
+    <li data-mode="browser"><b>GitHub Pages</b>, which hosts the site.</li>
+    <li><b>Cloudflare</b>, which provides DNS and HTTPS, protects the site, and may collect aggregate, cookie-free visit statistics.</li>
+    <li data-mode="browser"><b>jsDelivr</b>, which serves the review engine runtime (Pyodide).</li>
+    <li data-mode="browser"><b>cdnjs</b>, which serves the PDF reader and the PDF report maker.</li>
+    <li data-mode="server" hidden><b>cdnjs</b>, which serves the PDF report maker (PDF reports are built in your browser from the review).</li>
+    <li><b>Google Fonts</b>, which serves the typefaces.</li>
+  </ul>
+  <p>Each provider handles that information under its own privacy policy.</p>
+
+  <h2>Cookies and tracking</h2>
+  <p>Blue Pencil sets no cookies and runs no advertising or cross-site tracking. Browser storage is used only to keep your own work on your device.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Delete any review from <b>History</b>.</li>
+    <li data-mode="browser">Remove everything by clearing this site's data in your browser settings.</li>
+    <li>Download a backup from <b>Save &amp; load</b> to keep a copy before deleting.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Blue Pencil is not directed at children under 13 and does not knowingly collect their information.</p>
+
+  <h2>Changes and contact</h2>
+  <p>If this policy changes, the effective date above will change with it. Questions: contact Sriman Yalavarthi through <a href="https://sriman.us" target="_blank" rel="noopener">sriman.us</a> or <a href="https://www.linkedin.com/in/sriman-yalavarthi" target="_blank" rel="noopener">LinkedIn</a>.</p>
+</main>
+<footer class="site-foot">© 2026 Sriman Yalavarthi. Blue Pencil is owned and operated by Sriman Yalavarthi. All rights reserved. · <a href="docs.html">Docs</a> · <a href="owner.html">Owner</a></footer>
+<script>
+  // one page for both builds: the GitHub Pages build reviews on the device, the Pi build on its server
+  const server = location.pathname.includes("/static/");
+  document.querySelectorAll("[data-home]").forEach((a) => (a.href = server ? "/" : "./"));
+  document.querySelectorAll("[data-mode]").forEach((el) => (el.hidden = el.dataset.mode !== (server ? "server" : "browser")));
+</script>
+</body>
+</html>

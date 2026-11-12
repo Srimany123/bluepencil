@@ -23,6 +23,13 @@ It uses no AI and no server: your files never leave your device, and the same fi
 - **PDF report** and **Report (.md)** give a professional, action-first report: the verdict, the changes needed (each with the exact passage, where it is, and what to do), ready-to-apply edits, and scores by area.
 - Every review has a review ID. Paste it under **Settings from a review ID** to apply that review's exact settings to this paper or a new one. On the same paper, it also restores the findings you accepted.
 
+## Pages
+
+- `docs.html` explains every rule (from the catalog), how scores are built, and every metric. Each rule in the app links to its entry.
+- The **Metrics** tab, for your own reading and never in the client report, shows how the score was built, human-or-AI writing signals, interest, cohesion and novelty, every readability index with its meaning, and each rule's target with why it scored as it did.
+- `owner.html` is the owner page. **Photo:** add `assets/owner.jpg` (square, about 600 × 600) and push. Until then it shows the initials.
+- `privacy.html` is the privacy policy (shows the browser-build wording here, the server wording on the Pi build).
+
 ## Backups and other devices
 
 Click **Save & load**:

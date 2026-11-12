@@ -2,7 +2,7 @@
 /* global importScripts, loadPyodide */
 "use strict";
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
-const PY_FILES = ["engine.py", "extract.py", "rules.py", "rules_more.py", "measures_more.py", "analysis.py", "lexicon.py", "examples.py", "report.py", "bridge.py"];
+const PY_FILES = ["engine.py", "extract.py", "rules.py", "rules_more.py", "measures_more.py", "analysis.py", "lexicon.py", "examples.py", "report.py", "insights.py", "bridge.py"];
 const WHEELS = {
   docx: ["python_docx-1.2.0-py3-none-any.whl"],
   xlsx: ["et_xmlfile-2.0.0-py3-none-any.whl", "openpyxl-3.1.5-py2.py3-none-any.whl"],

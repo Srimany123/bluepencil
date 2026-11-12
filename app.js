@@ -330,8 +330,7 @@
       <nav class="tabs" role="tablist" aria-label="Report sections">
         ${TABS.map(([id, label]) => `<button type="button" role="tab" aria-selected="${S.tab === id}" data-tab="${id}">${label}${id === "rewrites" ? ` <span class="count">+${rv.total}</span>` : id === "findings" ? ` <span class="count">${nf}</span>` : ""}</button>`).join("")}
       </nav>
-      <div id="tabpanel" role="tabpanel"></div>
-      <p class="foot">Engine ${esc(r.engine)} · ${S.cat.rules.length} rules · reviewed in ${r.elapsed_s}s in your browser · same file + same settings → same review ID.</p>`;
+      <div id="tabpanel" role="tabpanel"></div>`;
     renderTab();
   }
   function decisionHTML(r) {
@@ -529,7 +528,7 @@
       <summary><span class="rid">${x.id}</span><span class="rtitle">${esc(x.name)}</span>
         <span class="rright">${x.rewrites ? `<span class="chip plus" title="Automatic rewrites available">+${x.rewrites}</span>` : ""}${sevc}<span class="chip ${cls}">${fmt(x.score, 0)}</span></span>
         <span class="rdetail">${esc(x.detail)}</span></summary>
-      <div class="rbody">
+      <div class="rbody"><a class="about-rule" href="${DOCS}#${x.id}" target="_blank" rel="noopener">What this rule checks ↗</a>
         <div class="thresh">${esc(threshText(x, meta))} · weight ${fmt(x.w, 1)} · costs ${fmt(x.lost, 2)} pts</div>
         <p class="why"><b>Why it matters.</b> ${esc(meta.why)} <b>Fix.</b> ${esc(meta.fix)}</p>${exHTML(meta)}
         ${items.length ? `<ul class="flist">${items.slice(0, lim).map(({ f }) => findingHTML(f, null, ci.get(`${x.id}:${f.b}:${f.as}`))).join("")}</ul>` : `<p class="empty-note">${x.n ? "No findings match the filters." : "No individual findings."}</p>`}
@@ -731,17 +730,102 @@
   }
 
   // ------------------------------------------------------------------ metrics
+  // ------------------------------------------------------------------ metrics: everything behind the score (online only)
+  const DOCS = (document.querySelector('meta[name="bp-docs"]') || {}).content || "docs.html";
+  const RD_MEANING = {
+    "Flesch-Kincaid grade": ["US school grade needed to follow the text, from sentence length and syllables per word.", "Papers 12–16 · general readers 8–10"],
+    "Flesch reading ease": ["0–100; higher is easier. 60–70 is plain English, under 30 is very hard (typical of dense academic prose).", "General 60+ · academic 20–40"],
+    "Gunning fog": ["Years of schooling needed, weighted towards words of 3+ syllables.", "Under 12 for wide audiences"],
+    "SMOG": ["Grade estimate from the count of 3+ syllable words; well suited to technical text.", "Under 12 for wide audiences"],
+    "Coleman-Liau": ["Grade estimate from letters per word and sentences per 100 words (no syllable counting).", "Close to the FK grade"],
+    "Automated Readability Index": ["Grade estimate from characters per word and words per sentence.", "Close to the FK grade"],
+    "LIX": ["Sentence length plus share of long words. Over 50 is hard, over 60 very hard.", "30–50"],
+    "RIX": ["Long words (7+ letters) per sentence.", "Under 5 is easy"],
+    "Words per sentence": ["Average sentence length.", "15–22 for most prose"],
+    "Syllables per word": ["Average word length in syllables.", "1.4–1.7"],
+    "Characters per word": ["Average word length in letters.", "4.5–5.5"],
+    "Complex words (3+ syllables)": ["Share of words with three or more syllables.", "Under 15% for wide audiences"],
+    "Long words (7+ letters)": ["Share of words with seven or more letters.", "Under 30%"],
+    "Sentences per paragraph": ["Average paragraph size in sentences.", "3–6"],
+    "Passive sentences": ["Share of sentences with a passive construction (was measured, were selected…).", "Under 20%; methods sections run higher"],
+    "Distinct words": ["How many different words the document uses.", "Grows with length"],
+    "Lexical diversity (MATTR-100)": ["Vocabulary variety: average share of distinct words in every 100-word window. Higher is more varied.", "0.70–0.80 is typical"],
+    "Words used once (hapax)": ["Share of distinct words that appear only once.", "40–60%"],
+    "Dialogue share": ["Share of prose inside quotation marks.", "Fiction 20–50% · papers near 0"],
+    "Reading time": ["At 238 words per minute.", ""],
+    "Speaking time": ["At 150 words per minute.", ""],
+  };
+  const pct = (v) => (v == null ? "–" : Math.round(100 * v) + "%");
+  const bar = (v, cls = "") => `<span class="mbar ${cls}"><span style="width:${Math.max(0, Math.min(100, v))}%"></span></span>`;
+
+  function scoreBuildCard(r) {
+    const s = r.settings, cats = r.categories.filter((c) => c.score != null && c.w > 0), tw = cats.reduce((a, c) => a + c.w, 0) || 1;
+    const vb = s.verdict;
+    return `<section class="card"><div class="eyebrow">How this score was built</div>
+      <p class="mnote">Each of the ${S.cat.rules.length} rules measures one thing and turns it into a 0–100 score with a curve: full marks at its target, falling to 0 at its limit (see each rule's target below). Rules are combined into area scores by a <b>${s.aggregation === "mean" ? "weighted average" : "weighted root-mean-square of shortfalls"}</b>${s.aggregation === "mean" ? "" : ", so a few badly failing rules can't hide behind many perfect ones"}. The overall score is the weighted average of the areas.</p>
+      <div class="tbl-wrap"><table class="mtable wide"><thead><tr><th>Area</th><th class="num">Weight</th><th class="num">Score</th><th class="num">Adds to overall</th><th class="num">Rules</th><th class="num">Findings</th><th></th></tr></thead><tbody>
+        ${cats.map((c) => `<tr><th><button type="button" class="link" data-fcat="${c.id}">${esc(c.name)}</button></th><td class="num">×${fmt(c.w, 2)}</td><td class="num">${fmt(c.score, 1)}</td>
+          <td class="num">${fmt((c.w * c.score) / tw, 1)}</td><td class="num">${c.rules}</td><td class="num">${c.findings}</td><td>${bar(c.score, c.score >= vb.accept ? "good" : c.score >= vb.minor ? "warn" : "bad")}</td></tr>`).join("")}
+        <tr class="total"><th>Overall</th><td></td><td class="num">${fmt(r.overall, 1)}</td><td class="num">${fmt(r.overall, 1)}</td><td></td><td></td><td></td></tr>
+      </tbody></table></div>
+      <div class="mcols">
+        <div><div class="eyebrow">Verdict bands</div><p class="mnote">Accept ≥ ${fmt(vb.accept)} · Minor revision ≥ ${fmt(vb.minor)} · Major revision ≥ ${fmt(vb.major)} · Reject below. Critical findings and very weak areas can cap the verdict lower than the score alone.</p></div>
+        <div><div class="eyebrow">Why this verdict</div><ul class="mlist">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}${S.manual.decision ? `<li><b>Your decision:</b> ${VLABEL[S.manual.decision.v]}.</li>` : ""}${S.accepted.size ? `<li>${S.accepted.size} finding(s) you accepted as fine are not counted.</li>` : ""}</ul></div>
+      </div></section>`;
+  }
+
+  function aiCard(ins) {
+    const a = ins && ins.ai;
+    if (!a) return `<section class="card"><div class="eyebrow">Human or AI writing signals</div><p class="empty-note">Re-run this review to see writing-style signals.</p></section>`;
+    const cls = a.index == null ? "" : a.index < 30 ? "good" : a.index < 60 ? "warn" : "bad";
+    return `<section class="card"><div class="eyebrow">Human or AI writing signals</div>
+      <div class="aihead"><div class="aiidx ${cls}"><b>${a.index == null ? "–" : a.index}</b><small>/ 100</small></div>
+        <div><div class="aiband">${esc(a.band || "Not enough text")}</div><p class="mnote">0 means every signal looks human-typical; 100 means every signal leans AI. ${esc(a.note)}${a.reliable ? "" : " <b>This document is too short for stable values.</b>"}</p></div></div>
+      <div class="tbl-wrap"><table class="mtable wide"><thead><tr><th>Signal</th><th>This document</th><th>Typical human</th><th>Leans AI</th><th class="num">Share of index</th></tr></thead><tbody>
+        ${a.signals.map((x) => `<tr><th>${esc(x.name)}<div class="mmeaning">${esc(x.meaning)}</div></th><td>${esc(x.shown)}</td><td>${esc(x.human)}</td>
+          <td>${x.lean == null ? "n/a" : bar(100 * x.lean, x.lean < 0.34 ? "good" : x.lean < 0.67 ? "warn" : "bad")}</td><td class="num">${x.contrib == null ? "" : fmt(x.contrib, 1)}</td></tr>`).join("")}
+      </tbody></table></div></section>`;
+  }
+
+  function flowCard(r) {
+    const f = (r.insights || {}).flow || {}, h = r.heat || {}, paras = (h.paras || []).filter((p) => p.int != null);
+    const secs = h.sections || [];
+    return `<section class="card"><div class="eyebrow">Flow: interest, cohesion and novelty</div>
+      <div class="stats">
+        <div class="stat"><div class="v">${pct(f.cohesion)}</div><div class="k">average cohesion</div></div>
+        <div class="stat"><div class="v">${pct(f.novelty)}</div><div class="k">average novelty</div></div>
+        <div class="stat"><div class="v">${f.grade_spread == null ? "–" : fmt(f.grade_spread, 1)}</div><div class="k">grade spread across paragraphs</div></div>
+        <div class="stat"><div class="v">${(f.breaks || []).length}</div><div class="k">cohesion breaks</div></div></div>
+      <dl class="mdefs">
+        <dt>Interest</dt><dd>Ranks each paragraph against the others in this document, from 0 (flattest) to 100 (liveliest). It blends new ideas (35%), sentence-length variety (20%), specifics such as numbers, names, citations and dialogue (20%), readability relative to the document's median grade (15%) and active voice (10%). Because it's a rank, the average is always about 50; what matters is where the lulls fall.</dd>
+        <dt>Cohesion</dt><dd>Share of content words a paragraph shares with the one before it in the same section. Under about 4% means the reader gets no verbal bridge from one paragraph to the next. Typical prose sits around 8–20%.</dd>
+        <dt>Novelty</dt><dd>Share of a paragraph's content words that haven't appeared earlier in the document. It falls naturally as a document goes on; a very low value can mean repetition.</dd>
+        <dt>Quality (map)</dt><dd>100 × e^(−weighted findings per 100 words ÷ 8). Critical findings weigh most.</dd></dl>
+      ${(f.breaks || []).length ? `<p class="mnote"><b>Cohesion breaks:</b> ${f.breaks.map((b) => `<button type="button" class="chip" data-para-findings="${b.para}">¶ ${b.para}</button>`).join(" ")} (no shared content words with the previous paragraph).</p>` : ""}
+      ${h.peaks && h.peaks.length ? `<p class="mnote"><b>Liveliest:</b> ${h.peaks.map((p) => `¶ ${p.para} (${fmt(p.int, 0)})`).join(", ")} · <b>Flattest:</b> ${(h.lulls || []).map((p) => `¶ ${p.para} (${fmt(p.int, 0)})`).join(", ")}</p>` : ""}
+      ${secs.length ? `<div class="tbl-wrap"><table class="mtable wide"><thead><tr><th>Section</th><th class="num">Words</th><th class="num">Quality</th><th class="num">Interest</th><th></th></tr></thead><tbody>
+        ${secs.map((x) => `<tr><th><button type="button" class="link" data-fsec="${esc(x.title)}">${esc(x.title)}</button></th><td class="num">${fmt(x.w)}</td><td class="num">${fmt(x.q, 0)}</td><td class="num">${x.int == null ? "–" : fmt(x.int, 0)}</td><td>${bar(x.q, x.q >= 85 ? "good" : x.q >= 60 ? "warn" : "bad")}</td></tr>`).join("")}
+      </tbody></table></div>` : ""}
+      ${paras.length ? "" : `<p class="empty-note">Not enough paragraphs of 15+ words to rank interest.</p>`}
+    </section>`;
+  }
+
   function tabMetrics() {
-    const st = S.report.stats, rd = st.readability || {};
+    const r = S.report, st = r.stats, rd = st.readability || {}, meta = ruleMeta();
     const histMax = Math.max(1, ...st.hist), histLbl = ["1–9", "10–19", "20–29", "30–39", "40–49", "50+"];
     const stat = (v, k) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
     return `
+      <p class="mnote">Everything behind the score, for your own reading. None of this goes into the client report. <a href="${DOCS}" target="_blank" rel="noopener">How every rule and metric works ↗</a></p>
+      ${scoreBuildCard(r)}
+      ${aiCard(r.insights)}
+      ${flowCard(r)}
+      <section class="card"><div class="eyebrow">Reading grade and readability</div>
+        <div class="tbl-wrap"><table class="mtable wide"><thead><tr><th>Metric</th><th class="num">Value</th><th>What it means</th><th>Typical target</th></tr></thead><tbody>
+          ${Object.entries(rd).map(([k, v]) => `<tr><th>${esc(k)}</th><td class="num">${esc(typeof v === "number" ? fmt(v, 2) : v)}</td><td class="mmeaning">${esc((RD_MEANING[k] || [""])[0])}</td><td class="mmeaning">${esc((RD_MEANING[k] || ["", ""])[1])}</td></tr>`).join("")}
+        </tbody></table></div></section>
       <section class="card"><div class="eyebrow">Document profile</div>
         <div class="stats">${stat(fmt(st.words), "words of body text")}${stat(fmt(st.sentences), "sentences")}${stat(fmt(st.paragraphs), "paragraphs")}${stat(fmt(st.headings), "headings")}
           ${stat(fmt(st.references), "references")}${stat(fmt(st.citations), `citations (${esc(st.cite_style)})`)}${stat(fmt(st.figures) + " / " + fmt(st.tables), "figures / tables")}${stat(st.pages ? fmt(st.pages) : "–", "pages")}</div></section>
-      <section class="card"><div class="eyebrow">Readability and style metrics</div>
-        <div class="tbl-wrap"><table class="mtable"><tbody>${Object.entries(rd).map(([k, v]) => `<tr><th>${esc(k)}</th><td class="num">${esc(typeof v === "number" ? fmt(v, 2) : v)}</td></tr>`).join("")}</tbody></table></div>
-        <p class="legend">Grade indices estimate the US school grade needed to read the text. Flesch reading ease: 60–70 is plain English, under 30 is very hard. LIX over 50 is hard. MATTR measures vocabulary variety (higher = more varied).</p></section>
       <section class="card"><div class="twocol">
         <div><div class="eyebrow">Sentence length (words)</div>
           <div class="hist">${st.hist.map((n, i) => `<div style="height:${(100 * n) / histMax}%" title="${histLbl[i]} words: ${n} sentence(s)"></div>`).join("")}</div>
@@ -751,11 +835,13 @@
         <div><div class="eyebrow">Outline as detected</div>
           ${S.doc.outline.length ? `<ul class="outline">${S.doc.outline.map((h) => `<li style="padding-left:${(h.l - 1) * 14}px"><span>${esc(h.t)}</span><span class="w">${fmt(h.w)} w</span></li>`).join("")}</ul>` : `<p class="empty-note">No headings detected.</p>`}</div>
       </div></section>
-      <section class="card"><div class="eyebrow">Every rule's measurement</div>
-        <div class="tbl-wrap"><table class="mtable wide"><thead><tr><th>Rule</th><th>Cat.</th><th class="num">Value</th><th>Unit</th><th class="num">Score</th><th class="num">Findings</th><th class="num">Rewrites</th><th class="num">Costs</th></tr></thead><tbody>
-          ${S.report.rules.map((x) => `<tr class="${x.status !== "scored" ? "dim" : ""}"><th><button type="button" class="link" data-frule="${x.id}">${x.id} ${esc(x.name)}</button></th><td>${x.cat}</td>
-            <td class="num">${x.status === "scored" ? fmt(x.value, 2) : x.status === "off" ? "off" : "n/a"}</td><td>${esc(x.unit)}</td>
-            <td class="num">${x.status === "scored" ? fmt(x.score, 0) : ""}</td><td class="num">${x.n ?? ""}</td><td class="num">${x.rewrites ? "+" + x.rewrites : ""}</td><td class="num">${x.lost ? fmt(x.lost, 2) : ""}</td></tr>`).join("")}
+      <section class="card"><div class="eyebrow">Every rule: what was measured and why it scored that way</div>
+        <div class="tbl-wrap"><table class="mtable wide rules-why"><thead><tr><th>Rule</th><th class="num">Value</th><th>Target and curve</th><th>What was found</th><th class="num">Score</th><th class="num">Costs</th></tr></thead><tbody>
+          ${r.rules.map((x) => `<tr class="${x.status !== "scored" ? "dim" : ""}"><th><button type="button" class="link" data-frule="${x.id}">${x.id} ${esc(x.name)}</button> <a class="about" href="${DOCS}#${x.id}" target="_blank" rel="noopener" title="What this rule checks">?</a></th>
+            <td class="num">${x.status === "scored" ? fmt(x.value, 2) + " <span class=\"u\">" + esc(x.unit) + "</span>" : x.status === "off" ? "off" : "n/a"}</td>
+            <td class="mmeaning">${x.status === "scored" ? esc(threshText(x, meta[x.id] || {}).replace(/^Measured [^·]*· /, "")) : x.status === "off" ? "Switched off for this document type." : ""}</td>
+            <td class="mmeaning">${esc(x.detail || "")}${x.accepted ? ` (${x.accepted} accepted by you)` : ""}</td>
+            <td class="num">${x.status === "scored" ? fmt(x.score, 0) : ""}</td><td class="num">${x.lost ? fmt(x.lost, 2) : ""}</td></tr>`).join("")}
         </tbody></table></div></section>`;
   }
 
@@ -853,7 +939,7 @@
     try {
       [S.cat, S.history, S.presets] = await Promise.all([api("/api/catalog"), api("/api/history"), api("/api/presets")]);
       $("#rule-count").textContent = S.cat.rules.length;
-      $("#host").textContent = `manuscript review · in your browser · ${S.cat.rules.length} rules`;
+      $("#host").textContent = "manuscript review";
       renderRecent();
       const m = location.hash.match(/^#review=([0-9a-f]{16})(?:&tab=(\w+))?$/);
       if (m) { if (m[2] && TABS.some(([id]) => id === m[2])) S.pendingTab = m[2]; openFromHistory(m[1]); }

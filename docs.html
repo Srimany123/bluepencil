@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blue Pencil Docs</title>
+<meta name="description" content="How Blue Pencil reviews a manuscript: every rule, how scores are built, and what each metric means.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 26l3-9L22 4l6 6L15 23z' fill='%232F62C9'/%3E%3Cpath d='M6 26l3-9 6 6z' fill='%23E9C46A'/%3E%3C/svg%3E">
+</head>
+<body class="page">
+<header class="top">
+  <a class="brand" href="./" data-home>
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26l3-9L22 4l6 6L15 23z" class="pencil-body"/><path d="M6 26l3-9 6 6z" class="pencil-tip"/></svg>
+    <span>Blue Pencil</span>
+  </a>
+  <span class="host">docs</span>
+  <nav class="topnav">
+    <a class="link" href="./" data-home>Review a file</a>
+    <a class="link" href="owner.html">Owner</a>
+  </nav>
+</header>
+<main class="docs" id="docs">
+  <aside class="docs-toc" id="toc" aria-label="Contents"></aside>
+  <article class="docs-body">
+    <h1>How Blue Pencil works</h1>
+    <p class="lede">Blue Pencil reads a manuscript and checks it against fixed editorial rules. There is no AI and no randomness: the same file with the same settings always gives the same score and the same review ID.</p>
+
+    <section id="pipeline"><h2>From file to verdict</h2>
+      <ol>
+        <li><b>Read.</b> The file becomes a list of blocks: title, headings, paragraphs, list items, captions, references and table cells. PDFs are rebuilt from the page layout, so headings there are inferred.</li>
+        <li><b>Measure.</b> Each rule measures one thing, such as the share of sentences over 50 words, citations without a reference, or doubled words. It records every place it found something (a <i>finding</i>).</li>
+        <li><b>Score each rule.</b> The measured value goes through the rule's curve to a score from 0 to 100.</li>
+        <li><b>Score each area.</b> Rules belong to nine areas (structure, clarity, style…). Each area gets one score.</li>
+        <li><b>Overall score and verdict.</b> The areas are averaged by weight. The score falls in a verdict band, and some findings can cap the verdict lower.</li>
+      </ol>
+    </section>
+
+    <section id="scoring"><h2>How scores are calculated</h2>
+      <h3>Rule curves</h3>
+      <p>Every rule has a mode and thresholds, set by the document type (research paper, chapter, book, fiction, general):</p>
+      <ul>
+        <li><b>Lower is better</b> (e.g. doubled words): 100 at or below the <i>good</i> value, falling in a straight line to 0 at the <i>bad</i> value.</li>
+        <li><b>Higher is better</b> (e.g. share of required sections present): 100 at or above <i>good</i>, 0 at or below <i>bad</i>.</li>
+        <li><b>Within a range</b> (e.g. reading grade 12–16 for a paper): 100 inside the range, falling to 0 a set distance (<i>tolerance</i>) beyond either edge.</li>
+      </ul>
+      <p><b>Strictness</b> (lenient ×0.6 to very strict ×1.8) tightens or loosens every threshold at once. Standard is ×1.0.</p>
+      <h3>Areas and the overall score</h3>
+      <p>By default an area score is a <b>weighted root-mean-square of shortfalls</b>: 100 − √(Σ weight × (100 − rule score)² ÷ Σ weight). One rule at 0 pulls an area down much more than an average would, so a serious problem can't hide behind many perfect rules. You can switch to a plain weighted average in the settings.</p>
+      <p>The overall score is the weighted average of the area scores. Default area weights for a research paper: Evidence ×1.5, Integrity ×1.2, Style and Mechanics ×0.8, the rest ×1.0.</p>
+      <h3>Verdict</h3>
+      <p>Default bands: <b>Accept</b> 85 and above, <b>Minor revision</b> 70–85, <b>Major revision</b> 50–70, <b>Reject</b> below 50. Caps can move the verdict lower than the band: any critical finding stops Accept, more than three critical findings cap at Major revision, and any area under 50 caps at Major revision. Every review lists the exact reasons for its verdict.</p>
+      <h3>Severity</h3>
+      <p>Each finding is <b>critical</b> (must fix before submission), <b>major</b> (a reviewer will ask for it), <b>minor</b> (polish) or a <b>note</b>. Severity sets the verdict caps and how much a finding weighs on the quality map.</p>
+      <h3>Points lost</h3>
+      <p>"Costs N pts" next to a rule is how much the overall score would rise if that rule were perfect. Required revisions and suggested improvements are sorted by it.</p>
+    </section>
+
+    <section id="yours"><h2>Your own review</h2>
+      <ul>
+        <li><b>Looks fine</b> on a finding means you checked it and it's acceptable. It stops counting toward the verdict caps, and each accepted finding gives back an equal share of the points its rule lost. Accept all of a rule's findings and the rule scores 100. Accepted findings are part of the review ID.</li>
+        <li><b>Your decision</b> records your own verdict next to the automated recommendation. Reports show yours, with the automated one noted.</li>
+        <li><b>Rewrites</b> are exact edits from rules with a certain fix (wordy phrases, spelling, a/an, doubled words…). Accept or reject each one; the revised download and the report apply only accepted ones.</li>
+        <li><b>In report / Not needed</b> on a required revision or improvement decides what goes into the PDF and .md report. It doesn't change the score.</li>
+        <li><b>Review ID</b>: every review has one. Paste it under <i>Settings from a review ID</i> to apply the same settings to this paper or a new one.</li>
+      </ul>
+    </section>
+
+    <section id="metrics"><h2>Metrics</h2>
+      <h3>Reading grade and readability</h3>
+      <dl class="ddefs">
+        <dt>Flesch-Kincaid grade</dt><dd>0.39 × words per sentence + 11.8 × syllables per word − 15.59. The US school grade needed to follow the text. Research papers usually sit at 12–16, general writing at 8–10.</dd>
+        <dt>Flesch reading ease</dt><dd>206.835 − 1.015 × words per sentence − 84.6 × syllables per word. 0–100, higher is easier; 60–70 is plain English, under 30 is very hard.</dd>
+        <dt>Gunning fog</dt><dd>0.4 × (words per sentence + 100 × share of 3+ syllable words).</dd>
+        <dt>SMOG</dt><dd>1.043 × √(complex words × 30 ÷ sentences) + 3.13. Good for technical text.</dd>
+        <dt>Coleman-Liau, ARI</dt><dd>Grade estimates from letters per word and sentence length, without syllable counting.</dd>
+        <dt>LIX, RIX</dt><dd>Sentence length plus the share of words with 7+ letters. LIX over 50 is hard.</dd>
+        <dt>Lexical diversity (MATTR)</dt><dd>The average share of distinct words in every 100-word window. Higher means more varied vocabulary; 0.70–0.80 is typical.</dd>
+      </dl>
+      <h3>Flow</h3>
+      <dl class="ddefs">
+        <dt>Interest</dt><dd>Ranks each paragraph against the others in the same document, from 0 (flattest) to 100 (liveliest). It blends new ideas (35%), sentence-length variety (20%), specifics such as numbers, names, citations and dialogue (20%), readability relative to the document's median grade (15%) and active voice (10%). Because it's a rank, it shows where the lulls are, not an absolute level.</dd>
+        <dt>Cohesion</dt><dd>The share of content words (4+ letters, not stop words) a paragraph shares with the previous paragraph in the same section. Under about 4% is a break the reader has to jump; typical prose is 8–20%.</dd>
+        <dt>Novelty</dt><dd>The share of a paragraph's content words not seen earlier in the document. It drops naturally towards the end.</dd>
+        <dt>Quality (map)</dt><dd>100 × e^(−severity-weighted findings per 100 words ÷ 8), for each paragraph.</dd>
+      </dl>
+      <h3>Human or AI writing signals</h3>
+      <p>Seven style signals that tend to separate human writing from text generated by language models. Each leans from 0 (human-typical) to 1 (AI-typical); the index is their weighted average × 100. Under 30 reads as mostly human-typical, 30–60 as mixed, over 60 as many AI-typical traits.</p>
+      <dl class="ddefs">
+        <dt>Sentence-length variety</dt><dd>Standard deviation ÷ mean of sentence lengths ("burstiness"). People mix short and long sentences (0.5+); generated text keeps them even (under 0.35). Weight 3.</dd>
+        <dt>Paragraph-length variety</dt><dd>The same for paragraph sizes. Weight 1.5.</dd>
+        <dt>AI-favoured vocabulary</dt><dd>Words models overuse: delve, pivotal, tapestry, underscore, seamless, robust, multifaceted, foster, leverage… per 1,000 words. Weight 3.</dd>
+        <dt>Stock phrases</dt><dd>“It is important to note”, “plays a crucial role”, “a testament to”, “not only … but also”, “in today's fast-paced…” per 1,000 words. Weight 2.</dd>
+        <dt>Formulaic openers</dt><dd>Sentences starting with Moreover, Furthermore, Additionally, Overall, In conclusion and similar. Weight 1.5.</dd>
+        <dt>Em dashes</dt><dd>Per 1,000 words. Low weight (1): many human writers use them too.</dd>
+        <dt>Chatbot leftovers</dt><dd>Pasted assistant text (“As an AI language model”, “I hope this helps”). Weight 4 when present.</dd>
+      </dl>
+      <p class="callout"><b>These are indicators, not proof.</b> Human writing that was edited heavily or written to a template can score high, and edited AI text can score low. Below 300 words the values are unstable. Use them as a reason to look closer, never as a verdict on their own.</p>
+    </section>
+
+    <section id="rules"><h2>Every rule</h2>
+      <p>Defaults shown are for a research paper at standard strictness. <span id="rulecount"></span></p>
+      <div class="docs-tools"><input type="search" id="q" placeholder="Search rules, e.g. passive, citation, dash" aria-label="Search rules"><select id="cat" aria-label="Area"><option value="">All areas</option></select></div>
+      <div id="rulelist"><p class="muted">Loading the rules…</p></div>
+    </section>
+  </article>
+</main>
+<script src="docs.js"></script>
+</body>
+</html>
