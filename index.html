@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="bp-version" content="__V__">
+<meta name="description" content="Rule-based manuscript reviewer that runs entirely in your browser.">
+<title>Blue Pencil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="app.css?v=__V__">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 26l3-9L22 4l6 6L15 23z' fill='%232F62C9'/%3E%3Cpath d='M6 26l3-9 6 6z' fill='%23E9C46A'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./" id="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26l3-9L22 4l6 6L15 23z" class="pencil-body"/><path d="M6 26l3-9 6 6z" class="pencil-tip"/></svg>
+    <span>Blue Pencil</span>
+  </a>
+  <span class="host" id="host">manuscript review · in your browser</span>
+  <nav class="topnav">
+    <button type="button" class="link" id="nav-new">New review</button>
+    <button type="button" class="link" id="nav-history">History</button>
+    <button type="button" class="link" id="nav-save">Save &amp; load</button>
+  </nav>
+</header>
+
+<main id="app">
+  <!-- Upload / empty state -->
+  <section id="view-start" class="start">
+    <div class="start-copy">
+      <h1>Review a manuscript against the rules editors use.</h1>
+      <p class="lede">Drop in a paper, chapter or whole book. Blue Pencil checks <span id="rule-count">130+</span> rules across structure, clarity, style, grammar, mechanics, evidence, consistency and completeness, then gives a verdict with every finding located and explained.</p>
+      <p class="lede small">It runs entirely in your browser with fixed rules and no AI: your files never leave this device, and the same file with the same settings always gives the same score.</p>
+    </div>
+    <label class="drop" id="drop" for="file">
+      <input type="file" id="file" accept=".pdf,.docx,.doc,.odt,.rtf,.txt,.md,.markdown,.html,.htm,.epub,.xlsx,.xlsm,.xls,.csv,.tsv,.tex">
+      <span class="drop-title">Drop a file here or <u>choose one</u></span>
+      <span class="drop-formats" id="formats">PDF · Word · OpenDocument · RTF · Text · Markdown · LaTeX · HTML · EPUB · Excel · CSV</span>
+      <span class="drop-status" id="drop-status" aria-live="polite"></span>
+    </label>
+    <div class="start-actions">
+      <button type="button" class="btn ghost" id="sample">Try the sample paper</button>
+      <span class="muted">A short research paper with deliberate problems.</span>
+    </div>
+    <div class="recent" id="recent"></div>
+  </section>
+
+  <!-- Review workspace -->
+  <section id="view-review" class="workspace" hidden>
+    <aside class="rail" id="rail">
+      <details class="rail-wrap" id="rail-wrap" open>
+        <summary class="rail-head"><span>Review settings</span><span class="run-state" id="run-state"></span></summary>
+        <div id="settings"></div>
+      </details>
+    </aside>
+    <div class="report" id="report"></div>
+  </section>
+
+  <!-- History -->
+  <section id="view-history" class="history" hidden>
+    <h2>Past reviews</h2>
+    <div id="history-list"></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<p class="engine-state muted" id="engine-state" aria-live="polite"></p>
+<script src="backend.js?v=__V__"></script>
+<script src="app.js?v=__V__"></script>
+</body>
+</html>

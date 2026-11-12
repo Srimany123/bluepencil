@@ -1,0 +1,58 @@
+Short Naps and Declarative Memory in Undergraduate Students
+
+Abstract
+
+We tested whether a 20-minute afternoon nap improves recall of word pairs learned in the morning. Sixty-four undergraduates learned 40 word pairs, then either napped or stayed awake before a cued-recall test. Participants who napped recalled 14% more pairs than those who stayed awake, and the benefit was largest for pairs learned last. The effect was not explained by alertness, which we measured with the PVT before testing. These results suggest that even brief daytime sleep can stabilise newly learned material, and that nap timing may matter as much as nap length. We discuss the implications for study scheduling and for theories of memory consolidation.
+
+Keywords: sleep, memory consolidation, napping, recall
+
+1. Introduction
+
+Sleep has long been linked to memory [1]. Studies show that sleep after learning protects new memories from interference. It is well known that slow-wave sleep is the stage most closely tied to declarative memory, and many researchers have argued that even a short nap is enough to produce a measurable benefit. In order to test this claim in a realistic setting, we recruited students during an ordinary teaching week rather than in a sleep laboratory, because laboratory naps happen in conditions that are very different from the noisy, interrupted, and often caffeinated afternoons that students actually experience when they try to rest between classes and study sessions in the middle of the day.
+
+Previous work used long naps of 60 to 90 minutes [2, 3]. Short naps are more practical, but the evidence for them is mixed [4]. Some studies report clear benefits for word-pair recall, while others find no difference once alertness is taken into account. Due to the fact that alertness and memory are hard to separate, we measured both. TODO: add the Smith review here.
+
+The present study asks two questions. First, does a 20-minute nap improve recall compared with quiet wakefulness? Second, is the benefit larger for material learned close to the nap?
+
+2. Methods
+
+2.1 Participants
+
+Sixty-four undergraduates (42 women, 22 men; mean age 20.3 years) took part for course credit. All participants were screened for sleep disorders with a standard questionnaire. Participants were randomly assigned to the nap group or the wake group. The study was approved by the university ethics board.
+
+2.2 Materials
+
+The word pairs were drawn from a published norms dataset [5]. Each pair consisted of two semantically related nouns, and the data set was balanced for frequency and concreteness. A total of 40 pairs were used.
+
+2.3 Procedure
+
+Participants learned the pairs at 11:00 and were tested at 15:00. Between 13:30 and 13:50 the nap group slept in a quiet room while the wake group watched a nature documentary. Sleep was recorded with a portable EEG headband. Alertness was measured with the PVT immediately before the test. The the recall test presented the first word of each pair and asked for the second.
+
+3. Results
+
+Recall was analyzed with an independent-samples t-test. The nap group recalled more pairs (M = 31.2, SD = 4.1) than the wake group (M = 27.4, SD = 4.6), a difference of 14 percent, t(62) = 3.49, p = .001. The difference was largest for the last ten pairs learned (see Figure 1). Figure 3 shows the distribution of sleep stages. Alertness scores did not differ between groups (Table 1).
+
+Across all 12000 recall trials, error types were similar in both groups. Of the 10,000 trials with complete EEG data, 61% came from participants who reached stage N2 sleep.
+
+Figure 1: Recall by learning position for the nap and wake groups.
+
+Table 1: Mean PVT reaction times by group.
+
+4. Discussion
+
+A short nap improved recall by about 14 percent. This is very consistent with the view that sleep actively stabilises recent memories [1, 7]. The benefit for the last pairs learned suggests that items that were still fragile at the time of the nap profited most. At the end of the day, the practical message for students is simple: a short nap between study and test is a low-cost way to remember more.
+
+Our sample was small and drawn from a single university. The nap took place in an unfamiliar room, which may have reduced sleep quality. The EEG headband is less accurate than full polysomnography. Future studies should vary nap timing directly. [citation needed]
+
+Results
+
+These findings matter.
+
+References
+
+[1] Diekelmann, S., & Born, J. (2010). The memory function of sleep. Nature Reviews Neuroscience, 11(2), 114-126.
+[2] Mednick, S., Nakayama, K., & Stickgold, R. (2003). Sleep-dependent learning: a nap is as good as a night. Nature Neuroscience, 6(7), 697-698.
+[3] Tucker, M. A., Hirota, Y., Wamsley, E. J., Lau, H., Chaklader, A., & Fishbein, W. (2006). A daytime nap containing solely non-REM sleep enhances declarative but not procedural memory. Neurobiology of Learning and Memory, 86(2), 241-247.
+[4] Lahl, O., Wispel, C., Willigens, B., & Pietrowsky, R. (2008). An ultra short episode of sleep is sufficient to promote declarative memory performance. Journal of Sleep Research, 17(1), 3-10.
+[5] Nelson, D. L., McEvoy, C. L., & Schreiber, T. A. (2004). The University of South Florida free association, rhyme, and word fragment norms. Behavior Research Methods, 36(3), 402-407.
+[6] Walker, M. P. (1999). Sleep and the consolidation of memory. Unpublished manuscript.
