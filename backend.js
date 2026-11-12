@@ -42,7 +42,7 @@
   function progress(msg) {
     progressMsg = msg;
     const start = document.getElementById("view-start"), ds = document.getElementById("drop-status"), rs = document.getElementById("run-state");
-    if (start && !start.hidden && ds && busyUpload) { ds.textContent = msg || ds.textContent; ds.classList.remove("err"); }
+    if (start && !start.hidden && ds && busyUpload) { ds.textContent = msg; ds.classList.remove("err"); }
     else if (rs && msg) rs.textContent = msg;
     const eng = document.getElementById("engine-state"); if (eng) eng.textContent = msg || "";
   }
@@ -51,7 +51,7 @@
     worker = new Worker("worker.js" + (V ? "?v=" + V : ""));
     worker.onmessage = (ev) => {
       const m = ev.data;
-      if ("progress" in m) { progress(m.progress); return; }
+      if ("progress" in m) { progress(m.progress); if (/couldn't start/.test(m.progress)) { const ds = document.getElementById("drop-status"); if (ds) { ds.textContent = m.progress; ds.classList.add("err"); } } return; }
       const w = waiting.get(m.id); if (!w) return; waiting.delete(m.id);
       m.error ? w.rej(new Error(m.error)) : w.res(m.result);
     };

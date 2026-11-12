@@ -392,9 +392,8 @@ table.matrix { min-width: 720px; }
 #saveDlg .dlg-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 #nav-save.stale::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--minor); vertical-align: middle; }
 .toastbtn { margin-left: 8px; background: none; border: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
-.engine-state { position: fixed; right: 12px; bottom: 10px; margin: 0; font-size: 12px; pointer-events: none; }
+.engine-state { margin: 10px 0 0; font-size: 12.5px; }
 .engine-state:empty { display: none; }
-@media (max-width: 600px) { .engine-state { left: 12px; right: auto; } }
 
 /* ---- reviewer's own calls: decision, accepted findings, accept/reject rewrites ---- */
 .decide { margin-top: 14px; display: grid; gap: 6px; }

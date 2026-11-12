@@ -2,7 +2,6 @@
 /* global importScripts, loadPyodide */
 "use strict";
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
-const PY_FILES = ["engine.py", "extract.py", "rules.py", "rules_more.py", "measures_more.py", "analysis.py", "lexicon.py", "examples.py", "report.py", "insights.py", "bridge.py"];
 const WHEELS = {
   docx: ["python_docx-1.2.0-py3-none-any.whl"],
   xlsx: ["et_xmlfile-2.0.0-py3-none-any.whl", "openpyxl-3.1.5-py2.py3-none-any.whl"],
@@ -15,7 +14,8 @@ let py = null, bridge = null;
 const extras = new Set();
 const say = (msg) => self.postMessage({ progress: msg });
 
-async function fetchText(p) { const r = await fetch(at(p)); if (!r.ok) throw new Error("Couldn't load " + p + " (" + r.status + ")"); return r.text(); }
+// always revalidate with the server (cheap 304s): a stale cached page must never mix old and new engine files
+async function fetchText(p) { const r = await fetch(at(p), { cache: "no-cache" }); if (!r.ok) throw new Error("Couldn't load " + p + " (" + r.status + ")"); return r.text(); }
 
 const ready = (async () => {
   say("Downloading the review engine (about 12 MB the first time, cached after)…");
@@ -24,6 +24,7 @@ const ready = (async () => {
   say("Loading the parser…");
   await py.loadPackage(["lxml"]);
   py.FS.mkdirTree("/bp"); py.FS.mkdirTree("/usr/share/dict"); py.FS.mkdirTree("/work");
+  const PY_FILES = JSON.parse(await fetchText("py/files.json"));   // written by build.sh: every engine file
   const [srcs, dicts] = await Promise.all([
     Promise.all(PY_FILES.map((f) => fetchText("py/" + f))),
     Promise.all(["american-english", "british-english"].map((f) => fetchText("py/dict/" + f))),
@@ -36,7 +37,11 @@ const ready = (async () => {
   bridge = py.pyimport("bridge");
   bridge.warm();
   say("");
-})();
+})().catch((e) => {
+  const msg = String((e && e.message) || e).split("\n").filter(Boolean).slice(-1)[0];
+  say("The review engine couldn't start (" + msg + "). Reload the page.");
+  throw e;
+});
 
 async function need(ext) {
   const want = ext === ".docx" ? "docx" : ext === ".xlsx" || ext === ".xlsm" ? "xlsx" : ext === ".xls" ? "xls" : null;
