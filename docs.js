@@ -7,8 +7,8 @@
   document.querySelectorAll("[data-home]").forEach((a) => (a.href = onPi ? "/" : "./"));
 
   let cat;
-  try { const r = await fetch("catalog.json"); if (!r.ok) throw 0; cat = await r.json(); }
-  catch (e) { try { cat = await (await fetch("/api/catalog")).json(); } catch (e2) { $("#rulelist").innerHTML = `<p class="muted">Couldn't load the rules.</p>`; return; } }
+  try { const r = await fetch(onPi ? "/api/catalog" : "catalog.json"); if (!r.ok) throw 0; cat = await r.json(); }
+  catch (e) { $("#rulelist").innerHTML = `<p class="muted">Couldn't load the rules.</p>`; return; }
 
   const paper = cat.profiles.paper.settings, profs = Object.entries(cat.profiles);
   const MODE = { lower: "Lower is better", higher: "Higher is better", range: "Within a range" };

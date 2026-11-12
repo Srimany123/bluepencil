@@ -21,7 +21,6 @@
   <nav class="topnav">
     <a class="link" href="./" data-home>Review a file</a>
     <a class="link" href="docs.html">Docs</a>
-    <a class="link" href="owner.html">Owner</a>
   </nav>
 </header>
 <main class="docs-body legal">
@@ -72,10 +71,10 @@
   <h2>Changes and contact</h2>
   <p>If this policy changes, the effective date above will change with it. Questions: contact Sriman Yalavarthi through <a href="https://sriman.us" target="_blank" rel="noopener">sriman.us</a> or <a href="https://www.linkedin.com/in/sriman-yalavarthi" target="_blank" rel="noopener">LinkedIn</a>.</p>
 </main>
-<footer class="site-foot">© 2026 Sriman Yalavarthi. Blue Pencil is owned and operated by Sriman Yalavarthi. All rights reserved. · <a href="docs.html">Docs</a> · <a href="owner.html">Owner</a></footer>
+<footer class="site-foot">© 2026 Sriman Yalavarthi. Blue Pencil is owned and operated by <a href="https://sriman.us" target="_blank" rel="noopener">Sriman Yalavarthi</a>. All rights reserved.</footer>
 <script>
   // one page for both builds: the GitHub Pages build reviews on the device, the Pi build on its server
-  const server = location.pathname.includes("/static/");
+  const server = document.documentElement.dataset.mode === "server" || location.pathname.includes("/static/");
   document.querySelectorAll("[data-home]").forEach((a) => (a.href = server ? "/" : "./"));
   document.querySelectorAll("[data-mode]").forEach((el) => (el.hidden = el.dataset.mode !== (server ? "server" : "browser")));
 </script>

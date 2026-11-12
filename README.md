@@ -27,8 +27,7 @@ It uses no AI and no server: your files never leave your device, and the same fi
 
 - `docs.html` explains every rule (from the catalog), how scores are built, and every metric. Each rule in the app links to its entry.
 - The **Metrics** tab, for your own reading and never in the client report, shows how the score was built, human-or-AI writing signals, interest, cohesion and novelty, every readability index with its meaning, and each rule's target with why it scored as it did.
-- `owner.html` is the owner page. **Photo:** add `assets/owner.jpg` (square, about 600 × 600) and push. Until then it shows the initials.
-- `privacy.html` is the privacy policy (shows the browser-build wording here, the server wording on the Pi build).
+- `privacy.html` is the privacy policy, published at `/privacy` (the browser-build wording here, the server wording on the Pi build).
 
 ## Backups and other devices
 
